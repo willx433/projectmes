@@ -1,0 +1,43 @@
+{% extends "engineer/base.html" %}
+{% block title %}Quality / NCR{% endblock %}
+{% block main %}
+<div class="topbar"><h1>Quality / Non-conformance</h1>
+  <span class="text-muted ms-auto">MES is system of record for NCRs (INT-3; JB2 NC is GET-only)</span></div>
+
+{% for n in ncrs %}
+<div class="card">
+  <div class="card-header"><h2>NCR #{{ n.id }} — {{ n.jb2_job_number }} step {{ n.step_number }}</h2>
+    <span class="badge badge-{{ n.state }} ms-auto">{{ n.state }}</span></div>
+  <div class="card-body">
+    <p>{{ n.defect_type }} · qty {{ n.qty }} · part {{ n.part_number or '—' }}
+      {% if n.supersedes_ncr_id %} · <span class="text-muted">corrects #{{ n.supersedes_ncr_id }}</span>{% endif %}</p>
+    {% if n.detail %}<p class="text-muted">{{ n.detail }}</p>{% endif %}
+    <p class="text-muted">reported by {{ n.reported_by }} at {{ n.created_at }}</p>
+
+    {% if n.state == 'dispositioned' %}
+      <p><strong>{{ n.disposition }}</strong> by {{ n.reviewer }} — {{ n.justification }}
+        <span class="text-muted">({{ n.dispositioned_at }})</span></p>
+      <details><summary class="text-muted">File correction (immutable; creates successor NCR — QA-7)</summary>
+        <form class="row" method="post" action="/ncr/{{ n.id }}/correct" style="margin-top:10px">
+          <div><label>Qty</label><input name="qty" type="number" value="{{ n.qty }}" required style="width:90px"></div>
+          <div><label>Defect</label><input name="defect_type" value="{{ n.defect_type }}" required></div>
+          <div><label>By</label><input name="reported_by" required></div>
+          <div style="flex:1"><label>Detail</label><input name="detail" style="width:100%"></div>
+          <div><button class="btn">File correction</button></div></form></details>
+    {% else %}
+      {% if n.state == 'open' %}
+      <form class="inline" method="post" action="/ncr/{{ n.id }}/review"><button class="btn">Move to review</button></form>
+      {% endif %}
+      <details style="margin-top:10px"><summary class="text-muted">Disposition</summary>
+        <form class="row" method="post" action="/ncr/{{ n.id }}/disposition" style="margin-top:10px">
+          <div><label>Disposition</label><select name="disposition" required>
+            {% for d in dispositions %}<option value="{{ d }}">{{ d }}</option>{% endfor %}</select></div>
+          <div><label>Rework to step (if rework)</label><input name="rework_to_step" type="number" style="width:120px"></div>
+          <div><label>Reviewer</label><input name="reviewer" required></div>
+          <div style="flex:1"><label>Justification</label><input name="justification" required style="width:100%"></div>
+          <div><button class="btn btn-primary">Disposition</button></div></form></details>
+    {% endif %}
+  </div>
+</div>
+{% else %}<p class="text-muted">No NCRs. Flag one from a job or station view.</p>{% endfor %}
+{% endblock %}

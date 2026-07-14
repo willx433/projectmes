@@ -1,0 +1,44 @@
+{% extends "engineer/base.html" %}
+{% block title %}{{ r.name }} v{{ r.version }}{% endblock %}
+{% block main %}
+<div class="topbar"><h1>{{ r.name }} <span class="text-muted">v{{ r.version }}</span></h1>
+  <span class="badge badge-{{ r.status }} ms-auto">{{ r.status }}</span></div>
+<p class="text-muted">Model: {{ r.model_name }}
+  {% if r.superseded_by %} · superseded by #{{ r.superseded_by }}{% endif %}</p>
+
+<div class="row" style="margin-bottom:18px">
+  {% if r.status == 'draft' %}
+  <form class="inline" method="post" action="/routings/{{ r.id }}/publish"><button class="btn btn-primary">Publish</button></form>
+  {% endif %}
+  <form class="inline" method="post" action="/routings/{{ r.id }}/new-version"><button class="btn">New version (supersede)</button></form>
+</div>
+
+{% if r.status == 'draft' %}
+<div class="card"><div class="card-body">
+  <form class="row" method="post" action="/routings/{{ r.id }}/operations">
+    <div><label>Add operation step</label><select name="operation_id" required>
+      {% for o in operations %}<option value="{{ o.id }}">{{ o.code }} — {{ o.name }} ({{ o.work_center }})</option>{% endfor %}</select></div>
+    <div><button class="btn btn-primary">Add step</button></div>
+  </form>
+</div></div>
+{% endif %}
+
+{% for s in steps %}
+<div class="card">
+  <div class="card-header"><h2>Step {{ s.step_number }} — {{ s.code }} {{ s.name }}</h2>
+    <span class="badge ms-auto">{{ s.work_center }}</span></div>
+  <div class="card-body">
+    <ol class="instr">{% for wi in instr[s.ro_id] %}
+      <li>{{ wi.text }}{% if not wi.required %} <span class="text-muted">(optional)</span>{% endif %}</li>
+    {% else %}<li class="text-muted">No instructions.</li>{% endfor %}</ol>
+    {% if r.status == 'draft' %}
+    <form class="row" method="post" action="/routing-operations/{{ s.ro_id }}/instructions">
+      <div style="flex:1"><label>Add instruction step</label><input name="text" required style="width:100%"></div>
+      <div><label>Required</label><select name="required"><option value="1">yes</option><option value="0">no</option></select></div>
+      <div><button class="btn">Add</button></div>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% else %}<p class="text-muted">No operations yet.</p>{% endfor %}
+{% endblock %}

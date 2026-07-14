@@ -1,0 +1,20 @@
+{% extends "engineer/base.html" %}
+{% block title %}Jobs{% endblock %}
+{% block main %}
+<div class="topbar"><h1>Jobs</h1>
+  <form class="inline ms-auto" method="post" action="/jobs/sync">
+    <button class="btn">Sync from JB2{% if not jb2_enabled %} (disabled){% endif %}</button></form></div>
+<p class="text-muted">JB2 is system of record for jobs (INT-1). This is a read-only mirror.
+  {% if not jb2_enabled %}<strong>JB2 not configured — showing demo data.</strong>{% endif %}</p>
+<div class="card"><div class="card-body" style="padding:0"><div class="table-wrap"><table>
+  <thead><tr><th>Job</th><th>Order</th><th>Customer</th><th>Part</th><th>Qty</th><th>Due</th>
+    <th>Pri</th><th>Source</th><th>State</th><th></th></tr></thead>
+  <tbody>{% for j in jobs %}<tr>
+    <td><strong>{{ j.jb2_job_number }}</strong></td><td>{{ j.order_number }}</td><td>{{ j.customer_code }}</td>
+    <td>{{ j.part_number }}</td><td>{{ j.qty }}</td><td>{{ j.due_date }}</td><td>{{ j.priority }}</td>
+    <td><span class="badge">{{ j.source }}</span></td>
+    <td><span class="badge badge-{{ j.lifecycle }}">{{ j.lifecycle }}</span></td>
+    <td><a class="btn btn-sm" href="/jobs/{{ j.id }}">Open</a></td></tr>
+  {% else %}<tr><td colspan="10" class="text-muted">No jobs.</td></tr>{% endfor %}</tbody>
+</table></div></div></div>
+{% endblock %}

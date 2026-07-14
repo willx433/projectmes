@@ -1,0 +1,22 @@
+# Change Requests — Atlas MES
+
+Every deviation from the design documents (`documentation/MES_Design_Document.md` v1.1,
+`MES_Product_Design_Document.md` v1.0), however small, gets a row **before** any code
+changes. Design doc wins on technical matters; product design doc wins on philosophy.
+
+Note: the legacy build's `legacy/change-requests.md` (CR-001/CR-002 of the superseded
+system) is archived history, not part of this series.
+
+| CR-ID | Date | Requester | Description | DD sections affected | Tier assigned | Status | Gate impact |
+|---|---|---|---|---|---|---|---|
+| CR-001 | 2026-07-14 | Plan (Fable) | Legacy governing docs (`requirements.md`, old `implementation-plan.md`, `library.md`, `change-requests.md`) and the SQLite read-only-island app are **superseded** by the July-2026 design set; entire legacy build archived to `legacy/`, mined for reference only (JB2 wire constants, base-template pattern, test philosophy). | all (baseline) | Fable | Approved (plan §0 X1) | none — pre-Phase 0 |
+| CR-002 | 2026-07-14 | Plan (Fable) | DD §16.1 "Compose **or** systemd" resolved to **systemd** for prod (per fixed constraints); Docker Compose retained as dev-only convenience under `deploy/dev/`, non-authoritative. | §16.1 | Fable | Approved (plan §0 X2) | Gate 1 deploy check runs systemd path |
+| CR-003 | 2026-07-14 | Plan (Fable) | DD §12.3 / §18.4 HTMX-vs-React resolved to **HTMX + Alpine.js**, templates shared with WeasyPrint. Escape hatch: a single self-contained JS island for the library builder if HTMX ceiling is hit — requires a new CR. | §12.3, §18.4 | Fable | Approved (plan §0 X3) | Gate 2/3 UI checks assume HTMX |
+| CR-004 | 2026-07-14 | Will (via pistol_flow_visual §4) | Dashboard implements the **union** of DD §13.1 states and the approved visual: adds in-transit card state and KPI strip (WIP / first-pass % / in-rework / stalled / on-time); keeps DD's hatched `blocked_no_instructions`. Visual governs look; DD governs state list. | §13.1 | Sonnet (P4-02) | Approved (plan §0 X4) | Gate 4 board check uses union |
+| CR-005 | 2026-07-14 | Plan (Fable) | Dev-dependency addition: **hypothesis** for state-machine property tests (DD N6 requires property-style tests but names no tool). Test-only; not an infrastructure component. | §15 N6 | Sonnet (P3-14) | Approved | Gate 3 property suite |
+| CR-006 | 2026-07-14 | Plan (Fable) | Working copy not under version control despite a reported linked GitHub repo; P0-01 relinks the remote (or inits + adds it). `.env` (live JB2 creds, repo root) gitignored — must never enter history. | §16.5 | Haiku (P0-01) | Approved (plan §0 X6) | none |
+| CR-007 | 2026-07-14 | Will | DD §18.1 resolved: serial numbers **pre-exist** in Atlas's system; MES records the existing serial at kit-up and never generates one. Required-before-done stays configurable. | §18.1, §6.1/6.8, §10 (`units.serial_number`) | Sonnet (P3-11) | Approved | Gate 3 serial check = entry, not generation |
+| CR-008 | 2026-07-14 | Will | Backup/restore (P4-07) **deferred** post-pilot: no offsite target yet. Stopgap = local nightly `pg_dump` to a second directory (P1-11). N1's RPO/RTO not certifiable until un-deferred. | §16.4, N1 | Sonnet | Approved (deferred) | Gate 4 checks stopgap only; N1 partially waived |
+| CR-009 | 2026-07-14 | Will | Hardware (tablets, USB wedge scanners) **bypassed** for now. UI must be mobile-friendly for Android tablets (Chrome), with manual-entry fallback beside every scan input; testing via emulated viewports (Playwright). Real-hardware validation deferred to pre-pilot. | §12.1, §14, PDD P2/P10 | Sonnet (P3-05) | Approved | Gate 3 uses emulated devices; pre-pilot hardware gate added |
+
+*All future scope changes: add a row with status `Proposed`, get Fable (or Will) approval, then code.*

@@ -1,0 +1,54 @@
+{% extends "engineer/base.html" %}
+{% block title %}Station {{ wc }}{% endblock %}
+{% block main %}
+<div class="topbar"><h1>Station — {{ wc }}</h1><a href="/stations" class="btn btn-sm ms-auto">All stations</a></div>
+<label>Operator <input id="op" placeholder="your name" style="max-width:240px"
+  oninput="localStorage.amr_op=this.value; document.querySelectorAll('.actor').forEach(e=>e.value=this.value)"></label>
+
+{% for it in items %}
+{% set q = it.queue %}{% set r = it.run %}{% set tm = it.to_move %}{% set hd = it.held %}
+{% set tot = q+r+tm %}
+{% set status = 'hold' if hd>0 else ('run' if r>0 else ('queue' if q>0 else ('ready' if tm>0 else 'idle'))) %}
+<div class="mcard station-job" {% if hd>0 %}style="border-left:3px solid var(--hold)"{% endif %}>
+  <div class="mcard-head">
+    <div><h3><a href="/jobs/{{ it.job_id }}">{{ it.jb2_job_number }}</a> · step {{ it.step }}</h3>
+      <div class="sub">{{ it.operation_name }} — due {{ it.due_date }} · pri {{ it.priority }}</div></div>
+    <span class="chip chip-{{ status }}">{{ status }}</span>
+  </div>
+  <div class="mcard-stats">
+    <div class="stat"><div class="k">Queue</div><div class="v">{{ '%g'|format(q) }}</div></div>
+    <div class="stat"><div class="k">Run</div><div class="v">{{ '%g'|format(r) }}</div></div>
+    <div class="stat"><div class="k">To&nbsp;move</div><div class="v">{{ '%g'|format(tm) }}{% if hd>0 %} <span class="held" style="font-size:12px">· {{ '%g'|format(hd) }} held</span>{% endif %}</div></div>
+  </div>
+  <div class="statusbar">
+    <i class="s-queue" style="width:{{ (q/tot*100) if tot else 0 }}%"></i>
+    <i class="s-run" style="width:{{ (r/tot*100) if tot else 0 }}%"></i>
+    <i class="s-to_move" style="width:{{ (tm/tot*100) if tot else 0 }}%"></i>
+  </div>
+  <div class="mcard-body">
+    {% if it.instructions %}<ol class="instr">{% for wi in it.instructions %}<li>{{ wi.text }}</li>{% endfor %}</ol>{% endif %}
+    <div class="row" style="margin-top:6px">
+      <form class="inline" method="post" action="/jobs/{{ it.job_id }}/move">
+        <input type="hidden" name="actor" class="actor"><input type="hidden" name="step" value="{{ it.step }}">
+        <input type="hidden" name="from_intra" value="queue"><input type="hidden" name="to_intra" value="run">
+        <input type="hidden" name="redirect" value="/stations/{{ wc }}">
+        <input name="qty" type="number" step="1" placeholder="qty" style="width:100px">
+        <button class="btn">Start</button></form>
+      <form class="inline" method="post" action="/jobs/{{ it.job_id }}/move">
+        <input type="hidden" name="actor" class="actor"><input type="hidden" name="step" value="{{ it.step }}">
+        <input type="hidden" name="from_intra" value="run"><input type="hidden" name="to_intra" value="to_move">
+        <input type="hidden" name="redirect" value="/stations/{{ wc }}">
+        <input name="qty" type="number" step="1" placeholder="qty" style="width:100px">
+        <button class="btn">Done</button></form>
+      <form class="inline" method="post" action="/jobs/{{ it.job_id }}/advance">
+        <input type="hidden" name="actor" class="actor"><input type="hidden" name="step" value="{{ it.step }}">
+        <input type="hidden" name="redirect" value="/stations/{{ wc }}">
+        <input name="qty" type="number" step="1" placeholder="qty" style="width:100px">
+        <button class="btn btn-primary">Advance →</button></form>
+    </div>
+  </div>
+</div>
+{% else %}<p class="text-muted">Queue empty.</p>{% endfor %}
+<script>if(localStorage.amr_op){document.getElementById('op').value=localStorage.amr_op;
+  document.querySelectorAll('.actor').forEach(e=>e.value=localStorage.amr_op);}</script>
+{% endblock %}

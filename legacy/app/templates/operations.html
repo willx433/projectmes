@@ -1,0 +1,21 @@
+{% extends "engineer/base.html" %}
+{% block title %}Operations{% endblock %}
+{% block main %}
+<div class="topbar"><h1>Operation catalog</h1></div>
+<div class="card"><div class="card-body">
+  <form class="row" method="post" action="/operations">
+    <div><label>Code</label><input name="code" required></div>
+    <div><label>Name</label><input name="name" required></div>
+    <div><label>Work center</label><input name="work_center" required></div>
+    <div><label>Setup min</label><input name="std_setup_min" type="number" step="0.1" value="0"></div>
+    <div><label>Run min</label><input name="std_run_min" type="number" step="0.1" value="0"></div>
+    <div><button class="btn btn-primary">Add</button></div>
+  </form>
+</div></div>
+<div class="card"><div class="card-body" style="padding:0"><div class="table-wrap"><table>
+  <thead><tr><th>Code</th><th>Name</th><th>Work center</th><th>Setup</th><th>Run</th></tr></thead>
+  <tbody>{% for o in operations %}<tr><td><strong>{{ o.code }}</strong></td><td>{{ o.name }}</td>
+    <td>{{ o.work_center }}</td><td>{{ o.std_setup_min }}</td><td>{{ o.std_run_min }}</td></tr>
+  {% else %}<tr><td colspan="5" class="text-muted">No operations.</td></tr>{% endfor %}</tbody>
+</table></div></div></div>
+{% endblock %}

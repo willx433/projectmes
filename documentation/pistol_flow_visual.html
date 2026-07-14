@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atlas MES — Pistol Production Flow: ERP vs MES</title>
+<style>
+  :root{
+    --jb2:#1f6f8b; --jb2-light:#e3eef2; --jb2-mid:#7fb0c2;
+    --mes:#c0392b; --mes-light:#f7e5e2; --mes-mid:#d98577;
+    --shared:#f2a541; --shared-light:#fdf1dc;
+    --dark:#2b2b2b; --grey:#777; --line:#d9d9d9;
+    --green:#2e8b57; --purple:#8e44ad; --amber:#e67e22; --red:#c0392b;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Segoe UI', system-ui, sans-serif; color:var(--dark); background:#fafafa; line-height:1.45;}
+  .wrap{max-width:1200px; margin:0 auto; padding:32px 24px 64px;}
+  h1{font-size:26px; margin-bottom:4px;}
+  h2{font-size:19px; margin:42px 0 6px; padding-top:18px; border-top:1px solid var(--line);}
+  .sub{color:var(--grey); font-size:13px; margin-bottom:14px;}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; margin:14px 0 6px; font-size:13px;}
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .dot{width:14px; height:14px; border-radius:3px; display:inline-block;}
+
+  /* ---------- swimlane flow ---------- */
+  .flow{display:grid; grid-template-columns:110px repeat(6,1fr); gap:0; margin-top:16px;
+        border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff;}
+  .lane-label{background:#f0f0f0; padding:10px 8px; font-weight:700; font-size:12px;
+        display:flex; align-items:center; border-bottom:1px solid var(--line);}
+  .lane-label.jb2{color:var(--jb2);} .lane-label.mes{color:var(--mes);}
+  .phase-head{background:var(--dark); color:#fff; font-size:11.5px; font-weight:600;
+        padding:8px 6px; text-align:center; border-left:1px solid #444;}
+  .cell{padding:10px 8px; font-size:11.5px; border-left:1px dashed var(--line);
+        border-bottom:1px solid var(--line); min-height:86px;}
+  .cell ul{list-style:none;}
+  .cell li{margin-bottom:5px; padding-left:14px; position:relative;}
+  .cell li::before{content:""; position:absolute; left:0; top:5px; width:8px; height:8px; border-radius:2px;}
+  .cell.jb2{background:var(--jb2-light);} .cell.jb2 li::before{background:var(--jb2);}
+  .cell.mes{background:var(--mes-light);} .cell.mes li::before{background:var(--mes);}
+  .cell .push{color:#9a6a10; font-weight:600;}
+  .cell .push::before{background:var(--shared) !important;}
+  .cell .quiet{color:#aaa; font-style:italic;}
+  .cell .quiet::before{background:#ccc !important;}
+
+  /* ---------- station strip ---------- */
+  .stations{display:flex; gap:6px; margin-top:16px; align-items:stretch; flex-wrap:wrap;}
+  .st{flex:1; min-width:120px; background:#fff; border:1px solid var(--line); border-radius:10px;
+      padding:10px 10px 12px; position:relative; text-align:center;}
+  .st .num{font-size:10px; color:var(--grey); letter-spacing:1px;}
+  .st .name{font-weight:700; font-size:13px; margin:2px 0 8px;}
+  .st .tags{display:flex; flex-direction:column; gap:4px;}
+  .tag{font-size:10px; border-radius:4px; padding:3px 5px; font-weight:600;}
+  .tag.mes{background:var(--mes-light); color:var(--mes);}
+  .tag.jb2{background:var(--jb2-light); color:var(--jb2);}
+  .tag.shared{background:var(--shared-light); color:#9a6a10;}
+  .arrow{align-self:center; color:var(--grey); font-size:18px; padding:0 2px;}
+
+  /* ---------- station zoom ---------- */
+  .zoom{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:16px;}
+  .panel{background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px;}
+  .panel h3{font-size:14px; margin-bottom:10px;}
+  .steps{list-style:none;}
+  .steps li{display:flex; gap:10px; align-items:flex-start; padding:7px 0; border-bottom:1px dashed #eee; font-size:12.5px;}
+  .steps li:last-child{border-bottom:none;}
+  .chip{flex-shrink:0; font-size:9.5px; font-weight:700; border-radius:4px; padding:2px 6px; margin-top:1px; min-width:64px; text-align:center;}
+  .chip.mes{background:var(--mes); color:#fff;}
+  .chip.jb2{background:var(--jb2); color:#fff;}
+  .chip.shared{background:var(--shared); color:#5c3c00;}
+
+  /* ---------- dashboard mockup ---------- */
+  .tv{background:#191d22; border-radius:14px; padding:22px; margin-top:16px;}
+  .tv-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;}
+  .tv-head .title{color:#fff; font-weight:700; font-size:16px;}
+  .kpis{display:flex; gap:10px; flex-wrap:wrap;}
+  .kpi{background:#242a31; border-radius:8px; padding:6px 14px; text-align:center;}
+  .kpi .v{color:#fff; font-weight:700; font-size:16px;}
+  .kpi .k{color:#8b95a1; font-size:10px; text-transform:uppercase; letter-spacing:.5px;}
+  .cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(252px,1fr)); gap:12px;}
+  .card{background:#242a31; border-radius:10px; padding:12px 14px; border-left:5px solid var(--green); color:#dfe5eb;}
+  .card.rework{border-left-color:var(--purple); box-shadow:0 0 0 1px var(--purple) inset;}
+  .card.stalled{border-left-color:var(--amber);}
+  .card.overdue{border-left-color:var(--red);}
+  .card.queued{border-left-color:#5a6673; opacity:.85;}
+  .card .top{display:flex; justify-content:space-between; align-items:baseline;}
+  .card .model{font-weight:700; color:#fff; font-size:14.5px;}
+  .card .serial{font-family:Consolas,monospace; font-size:11px; color:#9fb4c8;}
+  .badge{font-size:9px; font-weight:800; letter-spacing:.6px; border-radius:3px; padding:2px 6px; text-transform:uppercase;}
+  .badge.fp{background:#1d3d2c; color:#6fdc9c;}
+  .badge.rw{background:#332240; color:#c39bdb;}
+  .badge.q{background:#333a42; color:#98a4b1;}
+  .card .row{display:flex; justify-content:space-between; font-size:11px; color:#8b95a1; margin-top:7px;}
+  .card .row b{color:#cdd6de; font-weight:600;}
+  .ops{display:flex; gap:4px; margin-top:9px;}
+  .op{flex:1; height:7px; border-radius:3px; background:#39424c;}
+  .op.done{background:var(--jb2-mid);}
+  .op.cur{background:var(--shared); box-shadow:0 0 6px var(--shared);}
+  .op.redo{background:var(--purple);}
+  .bar-label{display:flex; justify-content:space-between; font-size:10px; color:#8b95a1; margin-top:8px;}
+  .bar{height:6px; background:#39424c; border-radius:3px; margin-top:3px; overflow:hidden;}
+  .bar i{display:block; height:100%; border-radius:3px; background:var(--green);}
+  .card.rework .bar i{background:var(--purple);}
+  .card.stalled .bar i{background:var(--amber);}
+  .card.overdue .bar i{background:var(--red);}
+  .foot{display:flex; justify-content:space-between; margin-top:9px; font-size:10.5px; color:#8b95a1;}
+  .flag{color:#e8b249;} .flagr{color:#e77;}
+  .src-note{margin-top:12px; font-size:11px; color:#8b95a1;}
+  .src-note b.j{color:#6fa9bd;} .src-note b.m{color:#d98577;}
+
+  .note{background:var(--jb2-light); border:1px solid var(--jb2); border-radius:8px;
+        padding:10px 14px; font-size:13px; margin-top:14px;}
+  @media (max-width:900px){ .flow{grid-template-columns:90px repeat(3,1fr);} .flow .p4,.flow .p5,.flow .p6{display:none;} .zoom{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Pistol Production Flow — who controls what</h1>
+  <div class="sub">Atlas MES × JobBOSS² · one Apollo, from order to ship · companion visual to the MES Design Document</div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--jb2)"></span> JobBOSS² (ERP) controls</span>
+    <span><span class="dot" style="background:var(--mes)"></span> Atlas MES controls</span>
+    <span><span class="dot" style="background:var(--shared)"></span> MES captures → writes back to JB2</span>
+  </div>
+
+  <!-- ================= SWIMLANE ================= -->
+  <h2>1 · Lifecycle swimlane</h2>
+  <div class="sub">Read left to right. The ERP lane goes quiet exactly when the floor gets busy — that silence is the gap the MES fills.</div>
+  <div class="flow">
+    <div class="lane-label" style="grid-column:1; background:var(--dark);"></div>
+    <div class="phase-head">1 · Order</div>
+    <div class="phase-head">2 · Release</div>
+    <div class="phase-head p4">3 · Kit-up</div>
+    <div class="phase-head p5">4 · Build (7 stations)</div>
+    <div class="phase-head p6">5 · Complete</div>
+    <div class="phase-head">6 · Ship &amp; invoice</div>
+
+    <div class="lane-label jb2">JobBOSS²<br>(ERP)</div>
+    <div class="cell jb2"><ul>
+      <li>Customer PO entered</li>
+      <li>Order + line item: Apollo, qty, due date</li>
+      <li>Routing attached (Ops 10–70)</li>
+    </ul></div>
+    <div class="cell jb2"><ul>
+      <li>Job number assigned</li>
+      <li>APS schedules the job</li>
+      <li class="quiet">…then waits for data</li>
+    </ul></div>
+    <div class="cell jb2 p4"><ul>
+      <li class="quiet">No concept of a physical box</li>
+    </ul></div>
+    <div class="cell jb2 p5"><ul>
+      <li class="push">Receives time tickets (labor, setup/cycle)</li>
+      <li class="push">Receives pieces finished / scrapped per op</li>
+      <li class="push">Routing step status updated</li>
+    </ul></div>
+    <div class="cell jb2 p6"><ul>
+      <li>Job costing totals up automatically</li>
+      <li class="push">Final quantities posted</li>
+    </ul></div>
+    <div class="cell jb2"><ul>
+      <li>Packing list &amp; shipment</li>
+      <li>Invoice from actual costs</li>
+    </ul></div>
+
+    <div class="lane-label mes">Atlas MES</div>
+    <div class="cell mes"><ul>
+      <li>Sync worker sees the order (≤90 s)</li>
+      <li>Part number → product “Apollo”</li>
+    </ul></div>
+    <div class="cell mes"><ul>
+      <li>Route imported 1:1 from JB2</li>
+      <li>Instructions bound per operation</li>
+      <li>Execution plan frozen + PDF guide</li>
+    </ul></div>
+    <div class="cell mes p4"><ul>
+      <li>Box QR bound to unit</li>
+      <li>Serial number recorded</li>
+      <li>Dashboard card appears</li>
+    </ul></div>
+    <div class="cell mes p5"><ul>
+      <li>Badge + box scans at every station</li>
+      <li>Step-by-step instructions on screen</li>
+      <li>Measurements vs tolerances</li>
+      <li>Failures → rework / scrap decisions</li>
+      <li>Box location + dwell tracked live</li>
+    </ul></div>
+    <div class="cell mes p6"><ul>
+      <li>Unit → done; card leaves the board</li>
+      <li>Per-serial build record archived</li>
+      <li>FPY / scrap / cycle analytics update</li>
+    </ul></div>
+    <div class="cell mes"><ul>
+      <li class="quiet">Nothing — money is ERP territory</li>
+    </ul></div>
+  </div>
+
+  <!-- ================= STATION STRIP ================= -->
+  <h2>2 · The seven stations</h2>
+  <div class="sub">Routing sequence comes from JB2 (blue). Everything that happens at the bench is MES (red). Amber flows back to JB2 automatically when an operation closes.</div>
+  <div class="stations">
+    <div class="st"><div class="num">OP 10</div><div class="name">CNC Machining</div>
+      <div class="tags"><span class="tag jb2">route step · est. time</span><span class="tag mes">instructions · scans</span><span class="tag shared">labor + qty → JB2</span></div></div>
+    <div class="arrow">→</div>
+    <div class="st"><div class="num">OP 20</div><div class="name">Slide Fit</div>
+      <div class="tags"><span class="tag jb2">route step · est. time</span><span class="tag mes">fit checks · dimensions</span><span class="tag shared">labor + qty → JB2</span></div></div>
+    <div class="arrow">→</div>
+    <div class="st"><div class="num">OP 30</div><div class="name">Barrel Fit</div>
+      <div class="tags"><span class="tag jb2">route step · est. time</span><span class="tag mes">lockup measurements</span><span class="tag shared">labor + qty → JB2</span></div></div>
+    <div class="arrow">→</div>
+    <div class="st"><div class="num">OP 40</div><div class="name">Internals / Trigger</div>
+      <div class="tags"><span class="tag jb2">route step · est. time</span><span class="tag mes">pull-weight capture</span><span class="tag shared">labor + qty → JB2</span></div></div>
+    <div class="arrow">→</div>
+    <div class="st"><div class="num">OP 50</div><div class="name">Finish / Cerakote</div>
+      <div class="tags"><span class="tag jb2">route step · est. time</span><span class="tag mes">prep checklist · photos</span><span class="tag shared">labor + qty → JB2</span></div></div>
+    <div class="arrow">→</div>
+    <div class="st"><div class="num">OP 60</div><div class="name">Final Assembly · QC</div>
+      <div class="tags"><span class="tag jb2">route step · est. time</span><span class="tag mes">inspection + signoff</span><span class="tag shared">labor + qty → JB2</span></div></div>
+    <div class="arrow">→</div>
+    <div class="st"><div class="num">OP 70</div><div class="name">Test Fire</div>
+      <div class="tags"><span class="tag jb2">route step · est. time</span><span class="tag mes">function record · photos</span><span class="tag shared">final qty → JB2</span></div></div>
+  </div>
+
+  <!-- ================= STATION ZOOM ================= -->
+  <h2>3 · Inside one station visit — Op 30 · Barrel Fit</h2>
+  <div class="sub">Every line an operator touches, tagged by which system it belongs to.</div>
+  <div class="zoom">
+    <div class="panel">
+      <h3>What the operator does</h3>
+      <ul class="steps">
+        <li><span class="chip mes">MES</span> Scans badge → operator session opens at Station 3</li>
+        <li><span class="chip mes">MES</span> Scans box QR → unit identified, “right station” confirmed, timer starts</li>
+        <li><span class="chip mes">MES</span> Works through steps: fit breech face → lap lugs → check lockup (photos + tolerances on screen)</li>
+        <li><span class="chip mes">MES</span> Enters hood clearance measurement — in-tolerance turns green</li>
+        <li><span class="chip mes">MES</span> One lug out of spec → taps <b>Fail</b> → lead badge → “rework in place”, cause coded</li>
+        <li><span class="chip mes">MES</span> Re-cuts, re-measures, passes; taps <b>Finish Operation</b></li>
+        <li><span class="chip shared">MES→JB2</span> Time-ticket detail posted: 47 min, 1 piece finished, reason code logged</li>
+        <li><span class="chip shared">MES→JB2</span> Routing step 30 patched: actual dates + pieces good</li>
+        <li><span class="chip jb2">JB2</span> Job cost and schedule update — nobody typed anything into JB2</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>What got recorded (this visit alone)</h3>
+      <ul class="steps">
+        <li><span class="chip mes">MES</span> 2 scans · location history + queue-vs-work dwell</li>
+        <li><span class="chip mes">MES</span> 14 substep completions with timestamps + operator ID</li>
+        <li><span class="chip mes">MES</span> 3 measurements with nominal/tolerance + gauge ID</li>
+        <li><span class="chip mes">MES</span> 1 failure event: cause, disposition, lead authorization</li>
+        <li><span class="chip mes">MES</span> Rework time (11 min) separated from first-pass time (36 min)</li>
+        <li><span class="chip mes">MES</span> 2 photos attached to the serial's build record</li>
+        <li><span class="chip shared">MES→JB2</span> 1 time ticket + 1 routing update (the only part JB2 can hold)</li>
+      </ul>
+      <div class="note">JB2 receives <b>2 records</b>; the MES keeps <b>~20</b>. That 10× granularity is what powers the dashboard below.</div>
+    </div>
+  </div>
+
+  <!-- ================= DASHBOARD ================= -->
+  <h2>4 · The pipeline dashboard — one card per gun</h2>
+  <div class="sub">Target design: every unit in the flow is a live card. Green = first pass on track · <b style="color:var(--purple)">purple = rework</b> · amber = stalled in queue · red = overdue · grey = awaiting start. Blue data comes from JB2; everything else is MES-captured.</div>
+
+  <div class="tv">
+    <div class="tv-head">
+      <div class="title">ATLAS — LIVE PRODUCTION · Monday 13:42</div>
+      <div class="kpis">
+        <div class="kpi"><div class="v">8</div><div class="k">WIP</div></div>
+        <div class="kpi"><div class="v">75%</div><div class="k">First pass</div></div>
+        <div class="kpi"><div class="v">2</div><div class="k">In rework</div></div>
+        <div class="kpi"><div class="v">1</div><div class="k">Stalled</div></div>
+        <div class="kpi"><div class="v">96%</div><div class="k">On time</div></div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <!-- Card 1: healthy first pass -->
+      <div class="card">
+        <div class="top"><span class="model">Apollo 9mm</span><span class="badge fp">First pass</span></div>
+        <div class="serial">SN AGW-26-0341 · SO-4512 L1 · Box B-017</div>
+        <div class="row"><span>Station</span><b>Op 30 · Barrel Fit</b></div>
+        <div class="row"><span>Operator</span><b>M.R. — active 0:47</b></div>
+        <div class="ops"><i class="op done"></i><i class="op done"></i><i class="op cur"></i><i class="op"></i><i class="op"></i><i class="op"></i><i class="op"></i></div>
+        <div class="bar-label"><span>Step 9 / 14 this op</span><span>route 38%</span></div>
+        <div class="bar"><i style="width:38%"></i></div>
+        <div class="foot"><span>Due Aug 15 (JB2)</span><span>started Jul 9</span></div>
+      </div>
+
+      <!-- Card 2: rework -->
+      <div class="card rework">
+        <div class="top"><span class="model">Apollo 9mm</span><span class="badge rw">Rework ×2</span></div>
+        <div class="serial">SN AGW-26-0339 · SO-4512 L1 · Box B-012</div>
+        <div class="row"><span>Station</span><b>Op 20 · Slide Fit (returned from Op 60)</b></div>
+        <div class="row"><span>Last failure</span><b>F-114 rail galling</b></div>
+        <div class="ops"><i class="op done"></i><i class="op redo"></i><i class="op redo"></i><i class="op redo"></i><i class="op redo"></i><i class="op redo"></i><i class="op"></i></div>
+        <div class="bar-label"><span>Step 2 / 11 this op</span><span>rework hrs 3.2</span></div>
+        <div class="bar"><i style="width:18%"></i></div>
+        <div class="foot"><span>Due Aug 15 (JB2)</span><span class="flag">⚑ lead: J.T.</span></div>
+      </div>
+
+      <!-- Card 3: stalled -->
+      <div class="card stalled">
+        <div class="top"><span class="model">Athena 5"</span><span class="badge fp">First pass</span></div>
+        <div class="serial">SN AGW-26-0344 · SO-4520 L2 · Box B-031</div>
+        <div class="row"><span>Station</span><b>Queued at Op 50 · Cerakote</b></div>
+        <div class="row"><span>In queue</span><b>4 h 10 m — no operator</b></div>
+        <div class="ops"><i class="op done"></i><i class="op done"></i><i class="op done"></i><i class="op done"></i><i class="op cur"></i><i class="op"></i><i class="op"></i></div>
+        <div class="bar-label"><span>Awaiting scan</span><span>route 57%</span></div>
+        <div class="bar"><i style="width:57%"></i></div>
+        <div class="foot"><span>Due Jul 24 (JB2)</span><span class="flag">⚠ dwell alert</span></div>
+      </div>
+
+      <!-- Card 4: overdue -->
+      <div class="card overdue">
+        <div class="top"><span class="model">Apollo .45</span><span class="badge fp">First pass</span></div>
+        <div class="serial">SN AGW-26-0327 · SO-4498 L1 · Box B-004</div>
+        <div class="row"><span>Station</span><b>Op 60 · Final Assembly / QC</b></div>
+        <div class="row"><span>Operator</span><b>D.K. — active 1:12</b></div>
+        <div class="ops"><i class="op done"></i><i class="op done"></i><i class="op done"></i><i class="op done"></i><i class="op done"></i><i class="op cur"></i><i class="op"></i></div>
+        <div class="bar-label"><span>Step 6 / 9 this op</span><span>route 81%</span></div>
+        <div class="bar"><i style="width:81%"></i></div>
+        <div class="foot"><span class="flagr">Due Jul 11 (JB2) — 2 d late</span><span>expedited</span></div>
+      </div>
+
+      <!-- Card 5 -->
+      <div class="card">
+        <div class="top"><span class="model">Nyx Compact</span><span class="badge fp">First pass</span></div>
+        <div class="serial">SN AGW-26-0350 · SO-4531 L1 · Box B-044</div>
+        <div class="row"><span>Station</span><b>Op 10 · CNC Machining</b></div>
+        <div class="row"><span>Operator</span><b>S.V. — active 2:05</b></div>
+        <div class="ops"><i class="op cur"></i><i class="op"></i><i class="op"></i><i class="op"></i><i class="op"></i><i class="op"></i><i class="op"></i></div>
+        <div class="bar-label"><span>Step 4 / 12 this op</span><span>route 6%</span></div>
+        <div class="bar"><i style="width:6%"></i></div>
+        <div class="foot"><span>Due Sep 2 (JB2)</span><span>started today</span></div>
+      </div>
+
+      <!-- Card 6: rework at test fire -->
+      <div class="card rework">
+        <div class="top"><span class="model">Apollo 9mm</span><span class="badge rw">Rework ×1</span></div>
+        <div class="serial">SN AGW-26-0335 · SO-4505 L3 · Box B-009</div>
+        <div class="row"><span>Station</span><b>Op 70 · Test Fire (re-test)</b></div>
+        <div class="row"><span>Last failure</span><b>F-201 ejection erratic</b></div>
+        <div class="ops"><i class="op done"></i><i class="op done"></i><i class="op done"></i><i class="op redo"></i><i class="op done"></i><i class="op done"></i><i class="op cur"></i></div>
+        <div class="bar-label"><span>Step 3 / 6 this op</span><span>route 93%</span></div>
+        <div class="bar"><i style="width:93%"></i></div>
+        <div class="foot"><span>Due Jul 20 (JB2)</span><span>operator T.B.</span></div>
+      </div>
+
+      <!-- Card 7: in transit -->
+      <div class="card">
+        <div class="top"><span class="model">Athena 5"</span><span class="badge fp">First pass</span></div>
+        <div class="serial">SN AGW-26-0343 · SO-4520 L1 · Box B-030</div>
+        <div class="row"><span>Status</span><b>In transit → Op 40 · Internals</b></div>
+        <div class="row"><span>Last scan</span><b>Op 30 finished 12 m ago</b></div>
+        <div class="ops"><i class="op done"></i><i class="op done"></i><i class="op done"></i><i class="op cur"></i><i class="op"></i><i class="op"></i><i class="op"></i></div>
+        <div class="bar-label"><span>Between stations</span><span>route 43%</span></div>
+        <div class="bar"><i style="width:43%"></i></div>
+        <div class="foot"><span>Due Aug 1 (JB2)</span><span>avg transit 9 m</span></div>
+      </div>
+
+      <!-- Card 8: queued / awaiting start -->
+      <div class="card queued">
+        <div class="top"><span class="model">Apollo 9mm</span><span class="badge q">Awaiting start</span></div>
+        <div class="serial">SN — unassigned · SO-4533 L1 · Box —</div>
+        <div class="row"><span>Status</span><b>Plan + PDF ready · needs kit-up</b></div>
+        <div class="row"><span>From JB2</span><b>ordered Jul 12 · routing Ops 10–70</b></div>
+        <div class="ops"><i class="op"></i><i class="op"></i><i class="op"></i><i class="op"></i><i class="op"></i><i class="op"></i><i class="op"></i></div>
+        <div class="bar-label"><span>Not started</span><span>route 0%</span></div>
+        <div class="bar"><i style="width:0%"></i></div>
+        <div class="foot"><span>Due Sep 10 (JB2)</span><span>instructions v3.1 bound</span></div>
+      </div>
+    </div>
+
+    <div class="src-note">Data provenance on every card — <b class="j">from JobBOSS²:</b> model/part, order + line, quantities, due date, routing sequence.
+      <b class="m">from MES:</b> serial, box, live location, operator, step progress, first-pass/rework state, failure codes, dwell timers, transit times.</div>
+  </div>
+
+  <div class="note" style="margin-top:26px">
+    <b>How to read this page:</b> JB2 defines <i>what</i> to build and <i>in what order</i> (blue). The MES runs the bench: instructions, scans, measurements, rework (red). At each operation close, the MES pays its “tax” back to the ERP (amber) so costing and invoicing never need manual entry. The dashboard is possible only because the red layer exists — none of its live detail is representable in JB2.
+  </div>
+
+</div>
+</body>
+</html>

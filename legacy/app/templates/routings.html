@@ -1,0 +1,21 @@
+{% extends "engineer/base.html" %}
+{% block title %}Routings{% endblock %}
+{% block main %}
+<div class="topbar"><h1>Routings</h1></div>
+<div class="card"><div class="card-body">
+  <form class="row" method="post" action="/routings">
+    <div><label>Name</label><input name="name" required></div>
+    <div><label>Model</label><select name="model_id" required>
+      {% for m in models %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}</select></div>
+    <div><button class="btn btn-primary">New routing (draft v1)</button></div>
+  </form>
+</div></div>
+<div class="card"><div class="card-body" style="padding:0"><div class="table-wrap"><table>
+  <thead><tr><th>Name</th><th>Model</th><th>Version</th><th>Status</th><th></th></tr></thead>
+  <tbody>{% for r in routings %}<tr><td><strong>{{ r.name }}</strong></td>
+    <td>{{ r.model_name }}</td><td>v{{ r.version }}</td>
+    <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+    <td><a class="btn btn-sm" href="/routings/{{ r.id }}">Open</a></td></tr>
+  {% else %}<tr><td colspan="5" class="text-muted">No routings.</td></tr>{% endfor %}</tbody>
+</table></div></div></div>
+{% endblock %}

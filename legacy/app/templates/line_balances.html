@@ -1,0 +1,21 @@
+{% extends "engineer/base.html" %}
+{% block title %}Line Balances{% endblock %}
+{% block main %}
+<div class="topbar"><h1>Line Balances</h1></div>
+<div class="card"><div class="card-body">
+  <form class="row" method="post" action="/line-balances">
+    <div><label>Name</label><input name="name" required></div>
+    <div><label>Routing</label><select name="routing_id" required>
+      {% for r in routings %}<option value="{{ r.id }}">{{ r.name }} v{{ r.version }}</option>{% endfor %}</select></div>
+    <div><label>Target takt (min)</label><input name="target_takt_minutes" type="number" step="0.1" required></div>
+    <div><button class="btn btn-primary">Add</button></div>
+  </form>
+</div></div>
+<div class="card"><div class="card-body" style="padding:0"><div class="table-wrap"><table>
+  <thead><tr><th>Name</th><th>Routing</th><th>Takt (min)</th><th>Status</th></tr></thead>
+  <tbody>{% for lb in line_balances %}<tr><td><strong>{{ lb.name }}</strong></td>
+    <td>{{ lb.routing_name }} v{{ lb.version }}</td><td>{{ lb.target_takt_minutes }}</td>
+    <td><span class="badge badge-{{ lb.status }}">{{ lb.status }}</span></td></tr>
+  {% else %}<tr><td colspan="4" class="text-muted">No line balances.</td></tr>{% endfor %}</tbody>
+</table></div></div></div>
+{% endblock %}

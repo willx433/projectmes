@@ -1,0 +1,119 @@
+{% extends "engineer/base.html" %}
+{% block title %}Job {{ job.jb2_job_number }}{% endblock %}
+{% block main %}
+<div class="topbar"><h1>Job {{ job.jb2_job_number }}</h1>
+  <span class="chip chip-{{ state.lifecycle }} ms-auto">{{ state.lifecycle.replace('_',' ') }}</span></div>
+<p class="text-muted">{{ job.part_number }} · qty {{ job.qty }} · due {{ job.due_date }} ·
+  customer {{ job.customer_code }} · <span class="badge">{{ job.source }}</span>
+  · routing owned by JB2 (INT-2), instructions overlaid by MES</p>
+
+<label style="margin-bottom:14px">Operator (used for all actions on this page)
+  <input id="op" placeholder="your name" style="max-width:240px"
+    oninput="localStorage.amr_op=this.value; document.querySelectorAll('.actor').forEach(e=>e.value=this.value)"></label>
+
+{% if not job.released %}
+<div class="card"><div class="card-body">
+  <form class="row" method="post" action="/jobs/{{ job.id }}/release">
+    <input type="hidden" name="actor" class="actor">
+    <div><label>Release qty to floor</label><input name="qty" type="number" step="1" value="{{ job.qty }}" required></div>
+    <div><button class="btn btn-primary">Release</button></div>
+  </form>
+</div></div>
+{% endif %}
+
+{% for s in steps %}
+{% set c = state.steps.get(s.step_number, {}) %}
+{% set q = c.get('queue',0) %}{% set r = c.get('run',0) %}{% set tm = c.get('to_move',0) %}{% set sc = c.get('scrap',0) %}
+{% set hd = held.get(s.step_number,0) %}
+{% set tot = q+r+tm+sc %}
+{% set status = 'hold' if hd>0 else ('run' if r>0 else ('queue' if q>0 else ('ready' if tm>0 else ('scrap' if sc>0 else 'idle')))) %}
+<div class="mcard" {% if hd>0 %}style="border-left:3px solid var(--hold)"{% endif %}>
+  <div class="mcard-head">
+    <div><h3>Step {{ s.step_number }} · {{ s.operation_code }}</h3>
+      <div class="sub">{{ s.operation_name }} — {{ s.work_center }}</div></div>
+    <span class="chip chip-{{ status }}">{{ status }}</span>
+  </div>
+  <div class="mcard-stats">
+    <div class="stat"><div class="k">Queue</div><div class="v">{{ '%g'|format(q) }}</div></div>
+    <div class="stat"><div class="k">Run</div><div class="v">{{ '%g'|format(r) }}</div></div>
+    <div class="stat"><div class="k">To&nbsp;move</div><div class="v">{{ '%g'|format(tm) }}{% if hd>0 %} <span class="held" style="font-size:12px">· {{ '%g'|format(hd) }} held</span>{% endif %}</div></div>
+  </div>
+  <div class="statusbar">
+    <i class="s-queue" style="width:{{ (q/tot*100) if tot else 0 }}%"></i>
+    <i class="s-run" style="width:{{ (r/tot*100) if tot else 0 }}%"></i>
+    <i class="s-to_move" style="width:{{ (tm/tot*100) if tot else 0 }}%"></i>
+    <i class="s-scrap" style="width:{{ (sc/tot*100) if tot else 0 }}%"></i>
+  </div>
+  <div class="mcard-body">
+    {% if job.released %}
+    <div class="row">
+      <form class="inline" method="post" action="/jobs/{{ job.id }}/move">
+        <input type="hidden" name="actor" class="actor"><input type="hidden" name="step" value="{{ s.step_number }}">
+        <input type="hidden" name="from_intra" value="queue"><input type="hidden" name="to_intra" value="run">
+        <input name="qty" type="number" step="1" placeholder="qty" style="width:84px" required>
+        <button class="btn btn-sm">queue→run</button></form>
+      <form class="inline" method="post" action="/jobs/{{ job.id }}/move">
+        <input type="hidden" name="actor" class="actor"><input type="hidden" name="step" value="{{ s.step_number }}">
+        <input type="hidden" name="from_intra" value="run"><input type="hidden" name="to_intra" value="to_move">
+        <input name="qty" type="number" step="1" placeholder="qty" style="width:84px" required>
+        <button class="btn btn-sm">run→to_move</button></form>
+      <form class="inline" method="post" action="/jobs/{{ job.id }}/advance">
+        <input type="hidden" name="actor" class="actor"><input type="hidden" name="step" value="{{ s.step_number }}">
+        <input name="qty" type="number" step="1" placeholder="qty" style="width:84px" required>
+        <button class="btn btn-sm btn-primary">advance →</button></form>
+    </div>
+
+    {% if overlay.get(s.step_number) %}
+    <ol class="instr">
+      {% for wi in overlay[s.step_number] %}
+      <li>{{ wi.text }}
+        {% if (s.step_number, wi.id) in acks %}<span class="chip chip-run">acked</span>
+        {% else %}
+        <form class="inline" method="post" action="/jobs/{{ job.id }}/ack">
+          <input type="hidden" name="actor" class="actor"><input type="hidden" name="step" value="{{ s.step_number }}">
+          <input type="hidden" name="instruction_id" value="{{ wi.id }}">
+          <button class="btn btn-sm">Acknowledge</button></form>
+        {% endif %}</li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+
+    <details style="margin-top:10px"><summary class="text-muted">Flag non-conformance</summary>
+      <form class="row" method="post" action="/jobs/{{ job.id }}/ncr" style="margin-top:10px">
+        <input type="hidden" name="step_number" value="{{ s.step_number }}">
+        <input type="hidden" name="reported_by" class="actor">
+        <input type="hidden" name="part_number" value="{{ job.part_number }}">
+        <div><label>Qty</label><input name="qty" type="number" step="1" required style="width:84px"></div>
+        <div><label>Defect type</label><input name="defect_type" required></div>
+        <div style="flex:1"><label>Detail</label><input name="detail" style="width:100%"></div>
+        <div><button class="btn btn-danger">Flag NCR</button></div>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+
+{% if ncrs %}
+<div class="card"><div class="card-header"><h2>NCRs on this job</h2></div>
+<div class="table-wrap"><table>
+  <thead><tr><th>#</th><th>Step</th><th>Qty</th><th>Defect</th><th>State</th><th>Disposition</th></tr></thead>
+  <tbody>{% for n in ncrs %}<tr><td>{{ n.id }}</td><td>{{ n.step_number }}</td><td>{{ n.qty }}</td>
+    <td>{{ n.defect_type }}</td><td><span class="chip chip-{{ n.state }}">{{ n.state.replace('_',' ') }}</span></td>
+    <td>{{ n.disposition or '—' }}</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+
+<div class="card"><div class="card-header"><h2>Audit — WIP event log</h2>
+  <span class="text-muted ms-auto">append-only (PT-3 / NF-3)</span></div>
+<div class="table-wrap"><table>
+  <thead><tr><th>When</th><th>Kind</th><th>From</th><th>To</th><th>Qty</th><th>Actor</th><th>Reason</th></tr></thead>
+  <tbody>{% for e in events %}<tr><td class="text-muted">{{ e.created_at }}</td><td>{{ e.kind }}</td>
+    <td>{{ e.from_step }}/{{ e.from_intra or '—' }}</td><td>{{ e.to_step or '—' }}/{{ e.to_intra or '—' }}</td>
+    <td>{{ '%g'|format(e.qty) }}</td><td>{{ e.actor }}</td><td class="text-muted">{{ e.reason or '' }}</td></tr>
+  {% else %}<tr><td colspan="7" class="text-muted">No events yet.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+
+<script>if(localStorage.amr_op){document.getElementById('op').value=localStorage.amr_op;
+  document.querySelectorAll('.actor').forEach(e=>e.value=localStorage.amr_op);}</script>
+{% endblock %}

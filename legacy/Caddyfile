@@ -1,0 +1,5 @@
+# Internal-network-only reverse proxy. No TLS/auth (NF-2): trusted LAN.
+:80 {
+	encode gzip
+	reverse_proxy api:8000
+}

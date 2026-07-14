@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Atlas Make Ready{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="appbar">
+    <div class="wordmark">Atlas <span>Make&nbsp;Ready</span></div>
+    <div class="vdiv"></div>
+    <span class="title">Production · Make Ready Console</span>
+    <span class="dot"></span>
+    <span class="clock" id="clock">—</span>
+  </header>
+  <nav class="rail">
+    <a href="/" class="{{ 'on' if nav=='dashboard' }}" title="Dashboard"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/></svg>Home</a>
+    <a href="/models" class="{{ 'on' if nav=='models' }}" title="Models"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v9"/></svg>Models</a>
+    <a href="/operations" class="{{ 'on' if nav=='operations' }}" title="Operations"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Ops</a>
+    <a href="/routings" class="{{ 'on' if nav=='routings' }}" title="Routings"><svg viewBox="0 0 24 24"><path d="M3 12h4l3 7 4-14 3 7h4"/></svg>Routings</a>
+    <a href="/line-balances" class="{{ 'on' if nav=='line-balances' }}" title="Line Balances"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>Line Bal</a>
+    <a href="/jobs" class="{{ 'on' if nav=='jobs' }}" title="Jobs"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Jobs</a>
+    <a href="/dispatch" class="{{ 'on' if nav=='dispatch' }}" title="Dispatch board"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Dispatch</a>
+    <a href="/stations" class="{{ 'on' if nav=='stations' }}" title="Stations / Area"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>Area</a>
+    <a href="/quality" class="{{ 'on' if nav=='quality' }}" title="Quality / NCR"><svg viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 5-3 8-7 10-4-2-7-5-7-10V6z"/></svg>Quality</a>
+    <a href="/reconciliation" class="{{ 'on' if nav=='reconciliation' }}" title="Reconciliation"><svg viewBox="0 0 24 24"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>Recon</a>
+  </nav>
+  <div class="content">
+    <main class="page">
+      {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+      {% if msg %}<div class="alert alert-ok">{{ msg }}</div>{% endif %}
+      {% block main %}{% endblock %}
+    </main>
+  </div>
+  <script>
+    (function(){ var c=document.getElementById('clock'); if(!c) return;
+      function t(){ var d=new Date();
+        c.textContent=d.toLocaleDateString([], {month:'2-digit',day:'2-digit',year:'numeric'})+'  '+
+          d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+      t(); setInterval(t,1000); })();
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Atlas MES (Make Ready). Internal-network-only; Caddy fronts the FastAPI app.
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      AMR_DB_PATH: /data/amr.db
+      # JB2 wiring — fill these to enable live sync (CR-001: read-only mirror).
+      # Left blank => app runs on demo-seeded data, no JB2 calls.
+      AMR_JB2_BASE_URL: ${AMR_JB2_BASE_URL:-}
+      AMR_JB2_TOKEN: ${AMR_JB2_TOKEN:-}
+    volumes:
+      - amr_data:/data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - "8088:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+
+volumes:
+  amr_data:

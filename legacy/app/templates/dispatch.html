@@ -1,0 +1,21 @@
+{% extends "engineer/base.html" %}
+{% block title %}Dispatch board{% endblock %}
+{% block main %}
+<div class="topbar"><h1>Dispatch board</h1>
+  <span class="text-muted ms-auto">sequenced by override → due-date → priority (SD-3)</span></div>
+{% for wc, items in board.items() %}
+<div class="card"><div class="card-header"><h2>{{ wc }}</h2><span class="badge ms-auto">{{ items|length }} queued</span></div>
+<div class="card-body" style="padding:0"><div class="table-wrap"><table>
+  <thead><tr><th>Job</th><th>Step / Op</th><th>Due</th><th>Pri</th><th>Active qty</th><th>Pin rank</th><th></th></tr></thead>
+  <tbody>{% for it in items %}<tr>
+    <td><a href="/jobs/{{ it.job_id }}"><strong>{{ it.jb2_job_number }}</strong></a></td>
+    <td>{{ it.step }} · {{ it.operation_name }}</td><td>{{ it.due_date }}</td><td>{{ it.priority }}</td>
+    <td>{{ '%g'|format(it.active) }}{% if it.held > 0 %} <span class="held">({{ '%g'|format(it.held) }} held)</span>{% endif %}</td>
+    <td>{{ it.rank if it.rank is not none else '—' }}</td>
+    <td><form class="inline" method="post" action="/dispatch/override">
+      <input type="hidden" name="job_id" value="{{ it.job_id }}"><input type="hidden" name="actor" value="planner">
+      <input name="rank" type="number" placeholder="rank" style="width:80px"><button class="btn btn-sm">Pin</button></form></td></tr>
+  {% endfor %}</tbody>
+</table></div></div></div>
+{% else %}<p class="text-muted">Nothing on the floor. Release a job from <a href="/jobs">Jobs</a>.</p>{% endfor %}
+{% endblock %}

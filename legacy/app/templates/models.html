@@ -1,0 +1,19 @@
+{% extends "engineer/base.html" %}
+{% block title %}Models{% endblock %}
+{% block main %}
+<div class="topbar"><h1>Models</h1></div>
+<div class="card"><div class="card-body">
+  <form class="row" method="post" action="/models">
+    <div><label>Name</label><input name="name" required></div>
+    <div><label>Type</label>
+      <select name="type"><option value="active">active</option><option value="draft">draft</option></select></div>
+    <div><button class="btn btn-primary">Add model</button></div>
+  </form>
+</div></div>
+<div class="card"><div class="card-body" style="padding:0"><div class="table-wrap"><table>
+  <thead><tr><th>ID</th><th>Name</th><th>Type</th><th>Created</th></tr></thead>
+  <tbody>{% for m in models %}<tr><td>{{ m.id }}</td><td><strong>{{ m.name }}</strong></td>
+    <td><span class="badge badge-{{ m.type }}">{{ m.type }}</span></td><td class="text-muted">{{ m.created_at }}</td></tr>
+  {% else %}<tr><td colspan="4" class="text-muted">No models.</td></tr>{% endfor %}</tbody>
+</table></div></div></div>
+{% endblock %}

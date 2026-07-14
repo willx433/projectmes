@@ -1,0 +1,101 @@
+{% extends "engineer/base.html" %}
+{% block title %}Atlas Make Ready{% endblock %}
+
+{% block main %}
+<div class="topbar">
+  <h1>Dashboard</h1>
+</div>
+<div class="page-body">
+
+  <div class="stat-grid" id="stats">
+    <a class="stat-box" href="/models">
+      <div class="stat-box-value" id="s-models">—</div>
+      <div class="stat-box-label">Models</div>
+    </a>
+    <a class="stat-box" href="/operations">
+      <div class="stat-box-value" id="s-ops">—</div>
+      <div class="stat-box-label">Operations</div>
+    </a>
+    <a class="stat-box" href="/routings">
+      <div class="stat-box-value" id="s-routings">—</div>
+      <div class="stat-box-label">Routings</div>
+    </a>
+    <a class="stat-box" href="/line-balances">
+      <div class="stat-box-value" id="s-lb">—</div>
+      <div class="stat-box-label">Line Balances</div>
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h2>Recent Routings</h2>
+      <a href="/routings" class="btn btn-secondary btn-sm ms-auto">View All</a>
+    </div>
+    <div class="card-body" style="padding:0">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Model</th><th>Version</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="recent-routings"><tr><td colspan="5" class="text-muted" style="text-align:center;padding:20px">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h2>Recent Line Balances</h2>
+      <a href="/line-balances" class="btn btn-secondary btn-sm ms-auto">View All</a>
+    </div>
+    <div class="card-body" style="padding:0">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Routing</th><th>Takt (min)</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="recent-lbs"><tr><td colspan="5" class="text-muted" style="text-align:center;padding:20px">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function load() {
+  const [models, ops, routings, lbs] = await Promise.all([
+    fetch('/api/models').then(r=>r.json()),
+    fetch('/api/operations').then(r=>r.json()),
+    fetch('/api/routings').then(r=>r.json()),
+    fetch('/api/line-balances').then(r=>r.json()),
+  ]);
+
+  document.getElementById('s-models').textContent   = models.length;
+  document.getElementById('s-ops').textContent      = ops.length;
+  document.getElementById('s-routings').textContent = routings.length;
+  document.getElementById('s-lb').textContent       = lbs.length;
+
+  const statusBadge = s => `<span class="badge badge-${s}">${s}</span>`;
+
+  const rBody = document.getElementById('recent-routings');
+  rBody.innerHTML = routings.slice(0,5).map(r => `
+    <tr>
+      <td><strong>${r.name}</strong></td>
+      <td>${r.model_name} ${statusBadge(r.model_type)}</td>
+      <td>v${r.version}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td><a class="btn btn-secondary btn-sm" href="/routings/${r.id}">Open</a></td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:20px">No routings yet.</td></tr>';
+
+  const lBody = document.getElementById('recent-lbs');
+  lBody.innerHTML = lbs.slice(0,5).map(lb => `
+    <tr>
+      <td><strong>${lb.name}</strong></td>
+      <td>${lb.routing_name}</td>
+      <td>${lb.target_takt_minutes}</td>
+      <td>${statusBadge(lb.status)}</td>
+      <td><a class="btn btn-secondary btn-sm" href="/line-balances/${lb.id}">Open</a></td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:20px">No line balances yet.</td></tr>';
+}
+load();
+</script>
+{% endblock %}
