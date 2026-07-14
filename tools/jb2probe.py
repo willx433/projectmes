@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -122,7 +121,8 @@ class JB2Probe:
     def _scrub(self, text: str) -> None:
         for secret in self._secrets:
             if secret and secret in text:
-                raise RuntimeError(f"SECRET LEAK detected in fixture output (client id/secret substring found)")
+                msg = "SECRET LEAK detected in fixture output (client id/secret substring found)"
+                raise RuntimeError(msg)
         if "Bearer " in text:
             raise RuntimeError("SECRET LEAK detected in fixture output ('Bearer ' token found)")
 
@@ -252,15 +252,24 @@ def cmd_lastmod(probe: JB2Probe, args: argparse.Namespace) -> None:
             field = _find_field(row, ["lastModDate", "lastModifiedDate", "lastModified"])
             lastmod_value = row.get(field) if field else None
             order_number = row.get("orderNumber") or row.get("jobNumber")
-            print(f"sample record lastModDate field={field!r} value={lastmod_value!r} orderNumber={order_number!r}")
+            print(
+                f"sample record lastModDate field={field!r} value={lastmod_value!r} "
+                f"orderNumber={order_number!r}"
+            )
 
     if lastmod_value:
         resp2 = probe.get("/orders", params={"lastModDate[gte]": lastmod_value, "take": 5})
         probe.record("lastmod-orders-boundary", "GET", "/orders",
                       {"lastModDate[gte]": lastmod_value, "take": 5}, resp2)
         boundary_rows = resp2.json().get("Data", []) if resp2.status_code == 200 else []
-        found = any((r.get("orderNumber") or r.get("jobNumber")) == order_number for r in boundary_rows)
-        print(f"boundary re-query exact value -> {resp2.status_code}, record present: {found} (inclusive={found})")
+        found = any(
+            (r.get("orderNumber") or r.get("jobNumber")) == order_number
+            for r in boundary_rows
+        )
+        print(
+            f"boundary re-query exact value -> {resp2.status_code}, "
+            f"record present: {found} (inclusive={found})"
+        )
 
     resp3 = probe.get("/order-line-items", params={"lastModDate[gte]": checkpoint, "take": 5})
     probe.record("lastmod-order-line-items", "GET", "/order-line-items",
@@ -270,19 +279,28 @@ def cmd_lastmod(probe: JB2Probe, args: argparse.Namespace) -> None:
         rows = resp3.json().get("Data", [])
         if rows:
             field = _find_field(rows[0], ["lastModDate", "lastModifiedDate", "lastModified"])
-            print(f"order-line-items sample lastModDate field={field!r} value={rows[0].get(field) if field else None!r}")
+            value = rows[0].get(field) if field else None
+            print(
+                f"order-line-items sample lastModDate field={field!r} value={value!r}"
+            )
 
     params = {"lastModDate[gte]": checkpoint, "take": 5}
     if order_number:
         params["orderNumber[eq]"] = order_number
     resp4 = probe.get("/order-routings", params=params)
     probe.record("lastmod-order-routings", "GET", "/order-routings", params, resp4)
-    print(f"order-routings lastModDate[gte]={checkpoint} orderNumber={order_number} -> {resp4.status_code}")
+    print(
+        f"order-routings lastModDate[gte]={checkpoint} orderNumber={order_number} "
+        f"-> {resp4.status_code}"
+    )
     if resp4.status_code == 200:
         rows = resp4.json().get("Data", [])
         if rows:
             field = _find_field(rows[0], ["lastModDate", "lastModifiedDate", "lastModified"])
-            print(f"order-routings sample lastModDate field={field!r} value={rows[0].get(field) if field else None!r}")
+            value = rows[0].get(field) if field else None
+            print(
+                f"order-routings sample lastModDate field={field!r} value={value!r}"
+            )
 
 
 def cmd_reason_codes(probe: JB2Probe, args: argparse.Namespace) -> None:
@@ -321,7 +339,10 @@ def cmd_endpoint(probe: JB2Probe, args: argparse.Namespace) -> None:
     name = args.path.strip("/").replace("/", "-")
     fixture_path = probe.record(name, "GET", args.path, params, resp)
     print(f"{args.path} -> {resp.status_code}")
-    print(json.dumps(resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text, indent=2)[:2000])
+    is_json = resp.headers.get("content-type", "").startswith("application/json")
+    body = resp.json() if is_json else resp.text
+    output = json.dumps(body, indent=2)[:2000]
+    print(output)
     print(f"fixture: {fixture_path}")
 
 

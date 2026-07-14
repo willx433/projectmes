@@ -35,16 +35,23 @@ EXPECTED_TABLES = {
     "sync_runs",
     "jb2_outbox",
     "mapping_exceptions",
+    "sync_checkpoints",
 }
 
 _CREATE_TABLE_RE = re.compile(r"CREATE TABLE (\w+) \((.*?)\n\);", re.DOTALL)
 _COLUMN_RE = re.compile(r"^\s*(\w+) ", re.MULTILINE)
 _SQL_KEYWORDS = {"CONSTRAINT", "PRIMARY", "FOREIGN", "UNIQUE", "CHECK"}
+# Later migrations (e.g. 0003_outbox_next_attempt) evolve a table with
+# ALTER TABLE ... ADD COLUMN rather than a fresh CREATE TABLE — pick those
+# up too so the model/migration comparison covers the whole `head`, not
+# just what 0001 created.
+_ADD_COLUMN_RE = re.compile(r"ALTER TABLE (\w+) ADD COLUMN (\w+) ")
 
 
 def _tables_from_migration_sql() -> dict[str, set[str]]:
     """Run `alembic upgrade head --sql` in-process and parse the emitted
-    CREATE TABLE statements into {table_name: {column_names}}."""
+    CREATE TABLE (and later ALTER TABLE ADD COLUMN) statements into
+    {table_name: {column_names}}."""
     cfg = Config(str(REPO_ROOT / "alembic.ini"))
     cfg.set_main_option("sqlalchemy.url", "postgresql://mes:mes@localhost:5432/mes")
 
@@ -64,6 +71,10 @@ def _tables_from_migration_sql() -> dict[str, set[str]]:
                 continue
             columns.add(first_word)
         tables[name] = columns
+
+    for name, column in _ADD_COLUMN_RE.findall(sql):
+        tables.setdefault(name, set()).add(column)
+
     return tables
 
 

@@ -15,10 +15,28 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, Numeric, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    Date,
+    ForeignKey,
+    Integer,
+    Numeric,
+    Text,
+    Uuid,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
+
+# ponytail: portable JSON/UUID types so tests can create these tables on
+# SQLite (app/sync tests, see tests/integration/test_sync.py) without
+# touching the hand-written Postgres migration DDL -- Postgres still gets
+# real JSONB via the variant; SQLite gets JSON text. Same for Uuid: native
+# UUID on Postgres, CHAR(32) on SQLite. Column names/shapes are unaffected
+# (see tests/unit/test_models_match_migration.py).
+_JSONB = JSON().with_variant(JSONB(), "postgresql")
 
 
 class Base(DeclarativeBase):
@@ -26,15 +44,21 @@ class Base(DeclarativeBase):
 
 
 def _uuid_pk() -> Mapped[uuid.UUID]:
+    # default=uuid.uuid4 is a client-side fallback so ORM inserts work on
+    # SQLite too (no gen_random_uuid() there) -- Postgres still has the
+    # server_default as a DB-level safety net for raw SQL inserts.
     return mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
     )
 
 
 class MirrorMixin:
     """Common columns for every jb2_* mirror row (DD §4.2)."""
 
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    payload: Mapped[dict] = mapped_column(_JSONB, nullable=False)
     content_hash: Mapped[str] = mapped_column(Text, nullable=False)
     jb2_last_modified: Mapped[datetime | None] = mapped_column(nullable=True)
     synced_at: Mapped[datetime] = mapped_column(nullable=False)
@@ -59,7 +83,7 @@ class JB2OrderLineItem(MirrorMixin, Base):
     id: Mapped[uuid.UUID] = _uuid_pk()
     jb2_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     jb2_order_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("jb2_orders.id"), nullable=True, index=True
+        Uuid(as_uuid=True), ForeignKey("jb2_orders.id"), nullable=True, index=True
     )
     part_number: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -73,7 +97,7 @@ class JB2OrderRouting(MirrorMixin, Base):
     id: Mapped[uuid.UUID] = _uuid_pk()
     jb2_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     jb2_line_item_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("jb2_order_line_items.id"), nullable=True, index=True
+        Uuid(as_uuid=True), ForeignKey("jb2_order_line_items.id"), nullable=True, index=True
     )
     seq: Mapped[int | None] = mapped_column(Integer, nullable=True)
     operation_code: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -89,7 +113,7 @@ class JB2OrderMaterial(MirrorMixin, Base):
     id: Mapped[uuid.UUID] = _uuid_pk()
     jb2_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     jb2_line_item_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("jb2_order_line_items.id"), nullable=True, index=True
+        Uuid(as_uuid=True), ForeignKey("jb2_order_line_items.id"), nullable=True, index=True
     )
     routing_seq: Mapped[int | None] = mapped_column(Integer, nullable=True)
     part_number: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -177,7 +201,7 @@ class JB2Outbox(Base):
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     kind: Mapped[str] = mapped_column(Text, nullable=False)
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    payload: Mapped[dict] = mapped_column(_JSONB, nullable=False)
     idempotency_key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default="pending")
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
@@ -185,7 +209,7 @@ class JB2Outbox(Base):
     # ponytail: plain uuid column, no FK. work_orders arrives in Phase 2;
     # migration 0003 adds `ForeignKey("work_orders.id")` once it exists.
     work_order_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         nullable=True,
         index=True,
         comment="Future FK to work_orders.id — added in migration 0003 (Phase 2).",
@@ -193,6 +217,9 @@ class JB2Outbox(Base):
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
     sent_at: Mapped[datetime | None] = mapped_column(nullable=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Added by migration 0003 (P1-09): when the drainer should retry a
+    # pending row next (exponential backoff). NULL = eligible now.
+    next_attempt_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
 
 class MappingException(Base):
@@ -201,6 +228,20 @@ class MappingException(Base):
     id: Mapped[uuid.UUID] = _uuid_pk()
     kind: Mapped[str] = mapped_column(Text, nullable=False)
     value: Mapped[str] = mapped_column(Text, nullable=False)
-    context: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    context: Mapped[dict | None] = mapped_column(_JSONB, nullable=True)
     resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+
+
+class SyncCheckpoint(Base):
+    """Per-resource incremental-sync checkpoint (P1-05, DD §4.2).
+
+    One row per resource name (`orders`, `order-line-items`, ...): the last
+    successfully processed `lastModDate`. See app/sync/checkpoints.py.
+    """
+
+    __tablename__ = "sync_checkpoints"
+
+    resource: Mapped[str] = mapped_column(Text, primary_key=True)
+    checkpoint: Mapped[datetime | None] = mapped_column(nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())

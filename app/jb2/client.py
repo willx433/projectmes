@@ -55,6 +55,14 @@ class Jb2Unavailable(Jb2Error):
     """Raised immediately when the circuit breaker is open."""
 
 
+class Jb2PermanentError(Jb2Error):
+    """A 4xx response — caller/contract error, not JB2 unavailability.
+
+    Never retried by this client, and callers (e.g. the outbox drainer,
+    P1-09) should treat it as permanent: park, don't retry with backoff.
+    """
+
+
 class _Throttle:
     """Module-level politeness floor between calls, thread-safe.
 
@@ -225,6 +233,22 @@ class Jb2Client:
             return body["Data"]
         return body
 
+    # -- public POST (P1-09 outbox writes) ------------------------------
+
+    def post(self, path: str, json_body: dict[str, Any], *, timeout: float | None = None) -> Any:
+        """POST a JB2 write (time-tickets, time-ticket-details, ...).
+
+        Raises Jb2PermanentError on 4xx (never retried — caller should park),
+        Jb2Error/Jb2Unavailable on exhausted 5xx retries or breaker-open
+        (caller should retry later).
+        """
+        url = f"{self._api_base}{path if path.startswith('/') else '/' + path}"
+        resp = self._call("POST", url, json=json_body, timeout=timeout)
+        body = resp.json()
+        if isinstance(body, dict) and "Data" in body:
+            return body["Data"]
+        return body
+
     def iter_pages(
         self,
         path: str,
@@ -256,6 +280,7 @@ class Jb2Client:
         *,
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
         timeout: float | None = None,
         auth: bool = True,
     ) -> httpx.Response:
@@ -269,7 +294,8 @@ class Jb2Client:
             start = self._clock()
             try:
                 resp = self._httpx.request(
-                    method, url, params=params, data=data, headers=headers, timeout=timeout
+                    method, url, params=params, data=data, json=json,
+                    headers=headers, timeout=timeout,
                 )
             except httpx.HTTPError as exc:
                 self._log(url, None, attempt, start)
@@ -298,7 +324,7 @@ class Jb2Client:
             if resp.status_code >= 400:
                 # 4xx is a caller/contract error, not JB2 unavailability — never retried,
                 # doesn't trip the breaker (breaker guards infra failures, §4.1/17.1).
-                raise Jb2Error(
+                raise Jb2PermanentError(
                     f"JB2 {method} {url} failed with {resp.status_code}: {resp.text[:200]}"
                 )
 
