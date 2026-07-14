@@ -57,8 +57,9 @@ from app.sync.engine import content_hash, format_jb2_datetime, parse_jb2_datetim
 
 logger = logging.getLogger("app.sync.worker")
 
-# Sentinel floor for a resource's first-ever pull (no checkpoint yet).
-EPOCH_FLOOR = datetime(1970, 1, 1, tzinfo=timezone.utc)
+# Sentinel floor for a resource's first-ever pull (no checkpoint yet) --
+# re-exported here since callers already import it from this module.
+EPOCH_FLOOR = checkpoints.EPOCH_FLOOR
 
 # -- P1-06: order/line-item change classification hook point -----------------
 
@@ -152,7 +153,10 @@ def _emit_line_item_events(
             select(JB2OrderLineItem).where(JB2OrderLineItem.jb2_id == jb2_id)
         ).one_or_none()
         if line_item is not None:
-            _sync_line_item_children(session, client, line_item.id, record.get("jobNumber"), now)
+            _sync_line_item_children(
+                session, client, line_item.id, record.get("jobNumber"),
+                record.get("orderNumber"), now,
+            )
 
 
 # -- P1-07: order-routings + job-materials/job-requirements follow-on --------
@@ -231,14 +235,34 @@ def _prefix_records(records: list[dict[str, Any]], prefix: str) -> list[dict[str
 
 def _sync_line_item_children(
     session: Session, client: Jb2Client, line_item_id: Any, job_number: str | None,
-    now: Callable[[], datetime],
+    order_number: str | None, now: Callable[[], datetime],
 ) -> None:
     """P1-07: pull one job's routing + planned materials and upsert them,
     linked by FK to the line item. Triggered from the order-line-items
     cycle itself (no separate cadence). Idempotent: upsert_records
-    hash-diffs, so re-running for an unchanged job is a no-op."""
+    hash-diffs, so re-running for an unchanged job is a no-op.
+
+    G1-D1: a closed/canceled order's line items never change again -- skip
+    the fan-out (3 extra API calls per line item) entirely. If the parent
+    order isn't in the mirror yet (orders cycle hasn't run), fall through
+    and fetch -- an unknown status is never treated as closed."""
     if not job_number:
         return
+
+    if order_number is not None:
+        order = session.scalars(
+            select(JB2Order).where(JB2Order.order_number == str(order_number))
+        ).one_or_none()
+        if order is not None and _status_is_closed(order.status):
+            logger.debug(
+                "child_fetch_skipped_closed",
+                extra={
+                    "sync_resource": "order-line-items",
+                    "jb2_order_number": order_number,
+                    "jb2_job_number": job_number,
+                },
+            )
+            return
 
     routings = client.get(
         "/order-routings", params={"jobNumber[eq]": job_number}, fields=ROUTING_FIELDS, take=200,
@@ -414,6 +438,7 @@ REGISTRY: list[ResourceDef] = [
         cadence_s=900,
         fields=["workCenter", "description", "uniqueID", "lastModDate"],
         model=JB2WorkCenter,
+        supports_last_mod=False,  # small master: full pull + hash diff (G1-D2)
         extract=_work_centers_extract,
     ),
     ResourceDef(
@@ -422,6 +447,7 @@ REGISTRY: list[ResourceDef] = [
         cadence_s=900,
         fields=["operationCode", "description", "uniqueID", "lastModDate"],
         model=JB2OperationCode,
+        supports_last_mod=False,  # small master: full pull + hash diff (G1-D2)
         extract=_operation_codes_extract,
         key_field="operationCode",
         key_attr="code",
@@ -432,6 +458,7 @@ REGISTRY: list[ResourceDef] = [
         cadence_s=900,
         fields=["employeeCode", "employeeName", "active", "uniqueID", "lastModDate"],
         model=JB2Employee,
+        supports_last_mod=False,  # small master: full pull + hash diff (G1-D2)
         extract=_employees_extract,
     ),
     ResourceDef(
@@ -442,6 +469,7 @@ REGISTRY: list[ResourceDef] = [
         # not uniqueID or the string reasonCode.
         fields=["reasonCode", "reasonCodeID", "description", "uniqueID", "lastModDate"],
         model=JB2ReasonCode,
+        supports_last_mod=False,  # small master: full pull + hash diff (G1-D2)
         extract=_reason_codes_extract,
         key_field="reasonCodeID",
         key_attr="reason_number",
@@ -452,6 +480,7 @@ REGISTRY: list[ResourceDef] = [
         cadence_s=900,
         fields=["documentNumber", "revision", "uniqueID", "lastModDate"],
         model=JB2Document,
+        supports_last_mod=False,  # small master: full pull + hash diff (G1-D2)
         extract=_document_controls_extract,
         key_prefix="dc",
     ),
@@ -480,7 +509,14 @@ def run_cycle(
     only -- see run_all_due's per-resource commit), and recorded as an
     errored sync_runs row so one resource's outage never blocks siblings."""
     started = now()
-    since = checkpoints.poll_since(session, resource_def.name) or EPOCH_FLOOR
+    since = checkpoints.poll_since(session, resource_def.name)
+    if since is None:
+        # G1-D1: first-ever cycle for this resource -- window to the last
+        # SYNC_BACKFILL_DAYS instead of pulling all history (masters exempt).
+        since = checkpoints.first_run_floor(
+            session, resource_def.name, supports_last_mod=resource_def.supports_last_mod,
+            now=started,
+        )
     fetched_total = 0
     changed_total = 0
     max_seen = since

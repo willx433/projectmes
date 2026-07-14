@@ -13,7 +13,8 @@ over ordinary sync httpx.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -21,6 +22,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.config import config, load_config
 from app.domain.models_jb2 import (
     Base,
     JB2Document,
@@ -42,6 +44,17 @@ from app.sync.engine import to_utc
 from app.sync.worker import REGISTRY, run_all_due, run_cycle
 
 BASE_URL = "http://fake-jb2"
+
+
+@pytest.fixture(autouse=True)
+def _generous_backfill_window(monkeypatch):
+    """Most fixtures in this module use fixed historical dates (2023-2025)
+    written relative to whenever the test was authored, not to the real
+    wall clock -- and P1-R1's first-run backfill window is measured off the
+    real `now()` by default. Give every test here a huge window so those
+    fixed dates never fall outside it; the handful of tests that exercise
+    the *real* SYNC_BACKFILL_DAYS default re-patch it back explicitly."""
+    monkeypatch.setattr(checkpoints, "config", replace(config, sync_backfill_days=36500))
 
 
 class _SyncASGITransport(httpx.BaseTransport):
@@ -67,6 +80,20 @@ class _SyncASGITransport(httpx.BaseTransport):
             content=drained.content,
             request=request,
         )
+
+
+class _CountingTransport(httpx.BaseTransport):
+    """Wraps another transport, tallying requests by path -- used to prove
+    a skipped fan-out (G1-D1 closed-order line items) makes zero requests
+    to the child endpoints, not just zero DB rows."""
+
+    def __init__(self, inner: httpx.BaseTransport) -> None:
+        self._inner = inner
+        self.counts: dict[str, int] = {}
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        self.counts[request.url.path] = self.counts.get(request.url.path, 0) + 1
+        return self._inner.handle_request(request)
 
 
 @pytest.fixture
@@ -519,3 +546,172 @@ def test_masters_sync_populates_all_six_mirrors_and_is_idempotent(
             session.commit()
             assert run.changed == 0
         assert session.query(JB2Document).count() == 2
+
+
+# -- P1-R1 (G1-D1): bounded first-run backfill -------------------------------
+
+def test_first_run_backfill_excludes_orders_older_than_window(
+    jb2_client, db_session_factory, monkeypatch
+):
+    """First-ever cycle for a lastModDate-supporting resource must window to
+    SYNC_BACKFILL_DAYS, not pull all history -- the live-tenant defect that
+    mirrored 16,938 historical orders and fanned out ~3 child calls/line item."""
+    monkeypatch.setattr(checkpoints, "config", replace(config, sync_backfill_days=30))
+    client, state = jb2_client
+    fixed_now = datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+    state["orders"] = [
+        _order(30, "10008", "Open", "2024-01-01T00:00:00Z"),  # ~166d old -- outside 30d window
+        _order(31, "10009", "Open", "2024-06-10T00:00:00Z"),  # 5d old -- inside window
+    ]
+
+    with db_session_factory() as session:
+        run = run_cycle(session, client, ORDERS_DEF, now=lambda: fixed_now)
+        session.commit()
+
+        assert run.error is None
+        assert run.fetched == 1  # the old order was never even requested/returned
+        assert run.changed == 1
+        assert session.query(JB2Order).count() == 1
+        assert session.query(JB2Order).one().order_number == "10009"
+
+
+def test_first_run_floor_windows_and_persists_immediately(db_session_factory, monkeypatch):
+    """checkpoints.first_run_floor computes now - SYNC_BACKFILL_DAYS and
+    commits it right away -- a restart before the cycle finishes must see
+    the persisted floor, not recompute a later (and thus skip-prone) one."""
+    monkeypatch.setattr(checkpoints, "config", replace(config, sync_backfill_days=30))
+    fixed_now = datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+    with db_session_factory() as session:
+        floor = checkpoints.first_run_floor(
+            session, "orders", supports_last_mod=True, now=fixed_now,
+        )
+        assert floor == fixed_now - timedelta(days=config.sync_backfill_days)
+
+    # Fresh session (simulated restart) -- the checkpoint is already there,
+    # so this is no longer treated as a "first run".
+    with db_session_factory() as session:
+        assert checkpoints.get_checkpoint(session, "orders") == floor
+        assert checkpoints.poll_since(session, "orders") is not None
+
+
+def test_first_run_floor_exempts_masters_without_last_mod(db_session_factory):
+    """Masters/full-pull resources (supports_last_mod=False) are small --
+    exempt from windowing, floor stays the epoch, nothing persisted."""
+    with db_session_factory() as session:
+        floor = checkpoints.first_run_floor(
+            session, "estimates", supports_last_mod=False,
+            now=datetime(2024, 6, 15, tzinfo=timezone.utc),
+        )
+        assert floor == checkpoints.EPOCH_FLOOR
+        assert checkpoints.get_checkpoint(session, "estimates") is None
+
+
+def test_sync_backfill_days_env_override_respected(monkeypatch):
+    monkeypatch.setenv("SYNC_BACKFILL_DAYS", "10")
+    assert load_config().sync_backfill_days == 10
+
+
+def test_sync_backfill_days_defaults_to_30(monkeypatch):
+    monkeypatch.delenv("SYNC_BACKFILL_DAYS", raising=False)
+    assert load_config().sync_backfill_days == 30
+
+
+def test_existing_checkpoint_not_rewindowed_on_restart(jb2_client, db_session_factory):
+    """A resource with an already-persisted checkpoint must never be
+    re-windowed, no matter how much later a "restart" happens -- only a
+    genuinely first-ever run gets the backfill floor."""
+    client, state = jb2_client
+    state["orders"] = [_order(30, "10008", "Open", "2023-10-25T14:30:13Z")]
+
+    with db_session_factory() as session:
+        run_cycle(session, client, ORDERS_DEF)
+        session.commit()
+        checkpoint_before = checkpoints.get_checkpoint(session, "orders")
+
+    much_later = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    with db_session_factory() as session:
+        run_cycle(session, client, ORDERS_DEF, now=lambda: much_later)
+        session.commit()
+        checkpoint_after = checkpoints.get_checkpoint(session, "orders")
+        assert checkpoint_after == checkpoint_before  # unchanged: no new/changed rows
+        rewindowed_floor = much_later - timedelta(days=config.sync_backfill_days)
+        assert checkpoint_after != rewindowed_floor
+
+
+# -- P1-R1 (G1-D1): closed orders skip line-item child fan-out --------------
+
+def test_closed_order_line_item_skips_child_fetch_and_no_extra_requests(
+    fake_jb2, db_session_factory
+):
+    """A closed/canceled order's line items never change again -- routing +
+    planned-materials fan-out must be skipped: no rows land, and no request
+    is even made to order-routings/job-materials/job-requirements."""
+    transport, state = fake_jb2
+    counting = _CountingTransport(_SyncASGITransport(transport))
+    client = Jb2Client(
+        BASE_URL, BASE_URL, "test-client-id", "test-client-secret",
+        transport=counting, sleeper=lambda s: None,
+    )
+    job_number = "10008-01"
+    state["orders"] = [_order(30, "10008", "Closed", "2023-10-25T14:30:13Z")]
+    state["order-line-items"] = [_line_item(507, job_number, "2023-10-25T14:30:13Z")]
+    # Seeded but must never be fetched -- if the skip logic regresses, these
+    # would land and the request counts below would be non-zero.
+    state["order-routings"] = [_routing(job_number, 60, "2025-03-07T17:06:28Z")]
+    state["job-materials"] = [_job_material(job_number, "2023-12-08T15:51:02Z")]
+    state["job-requirements"] = [_job_requirement(job_number, "2025-07-29T12:00:20Z")]
+
+    try:
+        with db_session_factory() as session:
+            run_cycle(session, client, ORDERS_DEF)  # order lands first, status=Closed
+            session.commit()
+
+            run = run_cycle(session, client, LINE_ITEMS_DEF)
+            session.commit()
+
+            assert run.error is None
+            assert session.query(JB2OrderLineItem).count() == 1
+            assert session.query(JB2OrderRouting).count() == 0
+            assert session.query(JB2OrderMaterial).count() == 0
+
+        assert counting.counts.get("/api/v1/order-routings", 0) == 0
+        assert counting.counts.get("/api/v1/job-materials", 0) == 0
+        assert counting.counts.get("/api/v1/job-requirements", 0) == 0
+    finally:
+        client.close()
+
+
+def test_open_order_line_item_still_triggers_child_fetch(fake_jb2, db_session_factory):
+    """Control case for the closed-order skip: an open order's line item
+    must still fan out as before."""
+    transport, state = fake_jb2
+    counting = _CountingTransport(_SyncASGITransport(transport))
+    client = Jb2Client(
+        BASE_URL, BASE_URL, "test-client-id", "test-client-secret",
+        transport=counting, sleeper=lambda s: None,
+    )
+    job_number = "10008-01"
+    state["orders"] = [_order(30, "10008", "Open", "2023-10-25T14:30:13Z")]
+    state["order-line-items"] = [_line_item(507, job_number, "2023-10-25T14:30:13Z")]
+    state["order-routings"] = [_routing(job_number, 60, "2025-03-07T17:06:28Z")]
+    state["job-materials"] = [_job_material(job_number, "2023-12-08T15:51:02Z")]
+    state["job-requirements"] = [_job_requirement(job_number, "2025-07-29T12:00:20Z")]
+
+    try:
+        with db_session_factory() as session:
+            run_cycle(session, client, ORDERS_DEF)
+            session.commit()
+
+            run = run_cycle(session, client, LINE_ITEMS_DEF)
+            session.commit()
+
+            assert run.error is None
+            assert session.query(JB2OrderRouting).count() == 1
+            assert session.query(JB2OrderMaterial).count() == 2
+
+        assert counting.counts.get("/api/v1/order-routings", 0) == 1
+        assert counting.counts.get("/api/v1/job-materials", 0) == 1
+        assert counting.counts.get("/api/v1/job-requirements", 0) == 1
+    finally:
+        client.close()

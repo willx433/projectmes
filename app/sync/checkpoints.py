@@ -12,14 +12,19 @@ recommendation).
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
+from app.config import config
 from app.domain.models_jb2 import SyncCheckpoint
 from app.sync.engine import to_utc
 
 OVERLAP_S = 2  # findings §4: second-granularity, gte inclusive at boundary
+
+# Sentinel floor for a resource's first-ever pull when it's exempt from
+# BACKFILL_DAYS windowing (masters with supports_last_mod=False).
+EPOCH_FLOOR = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
 def get_checkpoint(session: Session, resource: str) -> datetime | None:
@@ -49,3 +54,27 @@ def advance_checkpoint(
     if row.checkpoint is None or new_checkpoint > to_utc(row.checkpoint):
         row.checkpoint = new_checkpoint
         row.updated_at = now
+
+
+def first_run_floor(
+    session: Session, resource: str, *, supports_last_mod: bool, now: datetime
+) -> datetime:
+    """The `lastModDate[gte]` floor to use on a resource's first-ever cycle
+    (no stored checkpoint yet). G1-D1: pulling all history unbounded fanned
+    out ~3 child API calls per line item across 16,938 historical orders on
+    the live tenant -- windowed to the last SYNC_BACKFILL_DAYS instead.
+
+    Masters without lastModDate (small, full-pull resources) are exempt --
+    floor stays the epoch, relying on upsert_records' hash diff to no-op
+    anything already mirrored.
+
+    Persisted immediately (own commit, independent of the caller's cycle)
+    so a restart before the first cycle finishes doesn't recompute the
+    window against a later `now` and skip records in between.
+    """
+    if not supports_last_mod:
+        return EPOCH_FLOOR
+    floor = now - timedelta(days=config.sync_backfill_days)
+    advance_checkpoint(session, resource, floor, now=now)
+    session.commit()
+    return floor

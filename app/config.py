@@ -36,6 +36,7 @@ class Config:
     database_url: str | None
     mes_secret_key: str | None
     artifact_dir: str | None
+    sync_backfill_days: int
 
     def validate(self, required: list[str]) -> None:
         """Raise if any of the given attribute names are unset. Endpoints/workers
@@ -59,6 +60,9 @@ def load_config(env_path: Path | None = None) -> Config:
     def get(key: str) -> str | None:
         return os.environ.get(key, dotenv.get(key)) or None
 
+    raw_backfill_days = get("SYNC_BACKFILL_DAYS")
+    sync_backfill_days = int(raw_backfill_days) if raw_backfill_days else 30
+
     return Config(
         jobboss2_api_base_url=get("JobBoss2__ApiBaseUrl"),
         jobboss2_auth_base_url=get("JobBoss2__AuthBaseUrl"),
@@ -67,6 +71,7 @@ def load_config(env_path: Path | None = None) -> Config:
         database_url=get("DATABASE_URL"),
         mes_secret_key=get("MES_SECRET_KEY"),
         artifact_dir=get("ARTIFACT_DIR"),
+        sync_backfill_days=sync_backfill_days,
     )
 
 

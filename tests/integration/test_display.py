@@ -9,6 +9,7 @@ endpoints serve the last-good cached payload even once JB2 stops answering.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from datetime import datetime, timezone
 
 import httpx
@@ -18,12 +19,24 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 from starlette.testclient import TestClient
 
+from app.config import config
 from app.db import get_session
 from app.domain.models_jb2 import Base, DisplayCache, JB2Order, SyncRun
 from app.jb2.client import Jb2Client
 from app.main import app
+from app.sync import checkpoints
 from app.sync.display import DISPLAY_REGISTRY, run_display_cycle
 from app.sync.worker import REGISTRY, run_all_due
+
+
+@pytest.fixture(autouse=True)
+def _generous_backfill_window(monkeypatch):
+    """This module's one regular-mirror fixture (`_order`) uses a fixed
+    historical date, not one relative to the real wall clock -- give every
+    test here a huge first-run backfill window (P1-R1/G1-D1) so it never
+    falls outside it. See tests/integration/test_sync.py's identical fixture
+    for the full rationale."""
+    monkeypatch.setattr(checkpoints, "config", replace(config, sync_backfill_days=36500))
 
 
 class _SyncASGITransport(httpx.BaseTransport):
