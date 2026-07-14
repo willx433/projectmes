@@ -25,6 +25,10 @@ body {
 .wordmark span { color: #c0392b; }
 .appbar .title { opacity: 0.85; }
 
+.appnav { margin-left: auto; display: flex; gap: 1rem; }
+.appnav a { color: #fff; opacity: 0.85; text-decoration: none; font-size: 0.95rem; }
+.appnav a:hover { opacity: 1; text-decoration: underline; }
+
 .page {
   padding: 1rem;
   max-width: 1100px;
@@ -90,6 +94,30 @@ tr.row-bad { background: #fdecea; }
 }
 
 .btn:active { background: #17566b; }
+.btn-danger { background: #c0392b; }
+.btn-danger:active { background: #922117; }
+
+.field { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.75rem; }
+.field label { font-weight: 600; font-size: 0.9rem; }
+.field input[type="text"],
+.field input[type="checkbox"],
+.field textarea {
+  font-size: 1rem;
+  padding: 0.5rem;
+  border: 1px solid #c7cbd1;
+  border-radius: 6px;
+  font-family: inherit;
+}
+.field textarea { min-height: 4.5rem; font-family: ui-monospace, monospace; }
+.field-inline { flex-direction: row; align-items: center; }
+.field-inline label { font-weight: normal; }
+
+.link-row { margin: 0 0 0.75rem; }
+.link-row a { color: #1f6f8b; }
+.muted { color: #666; font-size: 0.9rem; }
+.badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.8rem; }
+.badge-active { background: #e3f6e8; color: #1b7a3d; }
+.badge-inactive { background: #eee; color: #666; }
 
 @media (prefers-color-scheme: dark) {
   body { background: #14161a; color: #e8e8e8; }
@@ -97,4 +125,7 @@ tr.row-bad { background: #fdecea; }
   th, td { border-bottom-color: #2c3038; }
   tr.row-bad { background: #3a1f1c; }
   .counts { color: #ccc; }
+  .field input[type="text"], .field textarea { background: #14161a; color: #e8e8e8; border-color: #2c3038; }
+  .muted { color: #999; }
+  .link-row a { color: #6db8d1; }
 }

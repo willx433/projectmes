@@ -10,6 +10,10 @@
   <header class="appbar">
     <div class="wordmark">Atlas <span>MES</span></div>
     <span class="title">{% block header_title %}{% endblock %}</span>
+    <nav class="appnav">
+      <a href="/admin/health">Health</a>
+      <a href="/admin/products">Products</a>
+    </nav>
   </header>
   <main class="page">
     {% if error %}<div class="banner banner-error">{{ error }}</div>{% endif %}

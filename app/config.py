@@ -2,7 +2,9 @@
 
 Exact keys (per IMPLEMENTATION_PLAN.md P1-01 / DD §16.3), never renamed:
 JobBoss2__ApiBaseUrl, JobBoss2__AuthBaseUrl, JobBoss2__ClientId,
-JobBoss2__ClientSecret, DATABASE_URL, MES_SECRET_KEY, ARTIFACT_DIR.
+JobBoss2__ClientSecret, DATABASE_URL, MES_SECRET_KEY, ARTIFACT_DIR,
+LIBRARY_REQUIRE_APPROVER (P2-03, DD §7.2 two-person publish gate; default
+false = single-approver per plan §9).
 """
 from __future__ import annotations
 
@@ -37,6 +39,7 @@ class Config:
     mes_secret_key: str | None
     artifact_dir: str | None
     sync_backfill_days: int
+    library_require_approver: bool
 
     def validate(self, required: list[str]) -> None:
         """Raise if any of the given attribute names are unset. Endpoints/workers
@@ -62,6 +65,11 @@ def load_config(env_path: Path | None = None) -> Config:
 
     raw_backfill_days = get("SYNC_BACKFILL_DAYS")
     sync_backfill_days = int(raw_backfill_days) if raw_backfill_days else 30
+    library_require_approver = (get("LIBRARY_REQUIRE_APPROVER") or "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
     return Config(
         jobboss2_api_base_url=get("JobBoss2__ApiBaseUrl"),
@@ -72,6 +80,7 @@ def load_config(env_path: Path | None = None) -> Config:
         mes_secret_key=get("MES_SECRET_KEY"),
         artifact_dir=get("ARTIFACT_DIR"),
         sync_backfill_days=sync_backfill_days,
+        library_require_approver=library_require_approver,
     )
 
 

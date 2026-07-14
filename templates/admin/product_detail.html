@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Admin · {{ product.name }} — Atlas MES{% endblock %}
+{% block header_title %}{{ product.name }}{% endblock %}
+
+{% block main %}
+
+<p class="link-row"><a href="/admin/products">&larr; All products</a></p>
+
+<section class="card">
+  <h2>{{ product.name }}</h2>
+  <p>{{ product.description or "No description." }}</p>
+  <p><span class="badge {{ 'badge-active' if product.active else 'badge-inactive' }}">{{ "active" if product.active else "inactive" }}</span></p>
+  <p class="muted">Variant schema: {{ product.variant_schema or "—" }}</p>
+
+  <form method="post" action="/admin/products/{{ product.id }}/delete" onsubmit="return confirm('Delete this product?');">
+    {% if part_maps %}
+    <div class="field field-inline">
+      <input type="checkbox" id="force" name="force" value="true">
+      <label for="force">Force delete ({{ part_maps|length }} part mapping(s) will be deleted too)</label>
+    </div>
+    {% endif %}
+    <button type="submit" class="btn btn-danger">Delete product</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Part number mappings</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>JB2 part number</th><th>Variant values</th><th></th></tr></thead>
+      <tbody>
+        {% for m in part_maps %}
+        <tr>
+          <td>{{ m.jb2_part_number }}</td>
+          <td>{{ m.variant_values or "—" }}</td>
+          <td>
+            <form method="post" action="/admin/part-map/{{ m.id }}/delete">
+              <button type="submit" class="btn btn-danger">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">No part numbers mapped to this product yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Add part mapping</h2>
+  <form method="post" action="/admin/products/{{ product.id }}/part-map">
+    <div class="field">
+      <label for="jb2_part_number">JB2 part number</label>
+      <input type="text" id="jb2_part_number" name="jb2_part_number" required>
+    </div>
+    <div class="field">
+      <label for="variant_values">Variant values (JSON, optional — keys must match the product's variant schema)</label>
+      <textarea id="variant_values" name="variant_values" placeholder='{"caliber": "9mm", "finish": "BLK"}'></textarea>
+    </div>
+    <button type="submit" class="btn">Add mapping</button>
+  </form>
+</section>
+
+{% endblock %}

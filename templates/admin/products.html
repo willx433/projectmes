@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Admin · Products — Atlas MES{% endblock %}
+{% block header_title %}Products{% endblock %}
+
+{% block main %}
+
+<section class="card">
+  <h2>Products</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Description</th><th>Variant schema</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+        <tr>
+          <td><a href="/admin/products/{{ p.id }}">{{ p.name }}</a></td>
+          <td>{{ p.description or "—" }}</td>
+          <td>{{ p.variant_schema or "—" }}</td>
+          <td><span class="badge {{ 'badge-active' if p.active else 'badge-inactive' }}">{{ "active" if p.active else "inactive" }}</span></td>
+          <td><a href="/admin/products/{{ p.id }}">Manage</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">No products yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>New product</h2>
+  <form method="post" action="/admin/products">
+    <div class="field">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" required>
+    </div>
+    <div class="field">
+      <label for="description">Description</label>
+      <input type="text" id="description" name="description">
+    </div>
+    <div class="field">
+      <label for="variant_schema">Variant schema (JSON, optional — e.g. {"caliber": ["9mm", ".45"], "finish": ["BLK", "FDE"]})</label>
+      <textarea id="variant_schema" name="variant_schema" placeholder='{"caliber": ["9mm", ".45"]}'></textarea>
+    </div>
+    <div class="field field-inline">
+      <input type="checkbox" id="active" name="active" value="true" checked>
+      <label for="active">Active</label>
+    </div>
+    <button type="submit" class="btn">Create product</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Unmapped part numbers</h2>
+  <p class="muted">JB2 part numbers seen on order line items with no product mapping yet.</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Part number</th><th></th></tr></thead>
+      <tbody>
+        {% for part_number in unmapped_parts %}
+        <tr>
+          <td>{{ part_number }}</td>
+          <td><a href="/admin/products?part_number={{ part_number }}#map-part">Create mapping</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="2">No unmapped part numbers.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if prefill_part_number %}
+  <p id="map-part" class="muted">
+    To map <strong>{{ prefill_part_number }}</strong>, open a product below and use its "Add part mapping" form.
+  </p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Unresolved mapping exceptions</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Kind</th><th>Value</th><th>Created</th></tr></thead>
+      <tbody>
+        {% for exc in mapping_exceptions %}
+        <tr>
+          <td>{{ exc.kind }}</td>
+          <td>{{ exc.value }}</td>
+          <td>{{ exc.created_at.isoformat() }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">No unresolved mapping exceptions.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}
