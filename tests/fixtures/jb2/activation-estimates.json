@@ -1,0 +1,38 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/estimates",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "quantityOnHand": null,
+          "partNumber": "100-0100",
+          "description": "17-4 PG ROD x .125\"\u00d8 x 144\" Ground",
+          "alternatePartNumber": null,
+          "productCode": "SS",
+          "GLCode": "12020",
+          "customerCode": null,
+          "revision": null,
+          "comments": null,
+          "vendorCode1": "ADMIRAL",
+          "leadTime": null,
+          "purchasingUnit": "BAR",
+          "purchaseFactor": 1.0,
+          "stockingCost": 5.96,
+          "calculationMethod": "2",
+          "purchasingGLCode": "12000",
+          "uniqueID": 1,
+          "active": false
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:19Z"
+}

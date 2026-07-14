@@ -1,0 +1,34 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/orders",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "orderNumber": "10008",
+          "customerCode": "AGW STOCK",
+          "customerDescription": "AGW Stock",
+          "PONumber": null,
+          "dateEntered": "2023-10-17T11:36:35Z",
+          "salesID": "HOUSE",
+          "termsCode": null,
+          "orderTotal": 0.0,
+          "status": "Closed",
+          "territory": "",
+          "currencyCode": "USD",
+          "uniqueID": 30,
+          "lastModDate": "2023-10-25T14:30:13Z",
+          "orderTotalForeign": null
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:15Z"
+}

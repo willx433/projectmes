@@ -1,0 +1,49 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/order-line-items",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "orderNumber": "10008",
+          "jobNumber": "10008-01",
+          "partNumber": "120-5300",
+          "partDescription": "Venom Customs Slides",
+          "status": "Closed",
+          "workCode": "",
+          "productCode": "UPPER",
+          "unitPrice": 360.5177,
+          "pricingUnit": "EA",
+          "masterJobNumber": null,
+          "estimatedStartDate": "2023-10-20T21:12:31Z",
+          "estimatedEndDate": "2023-10-21T03:59:00Z",
+          "actualStartDate": null,
+          "actualEndDate": null,
+          "revision": null,
+          "jobNotes": null,
+          "quantityOrdered": 0,
+          "quantityToMake": 3,
+          "quantityToStock": 3,
+          "quantityCanceled": 0,
+          "quantityShippedToCustomer": 0,
+          "quantityShippedToStock": 3,
+          "totalEstimatedHours": 5.758333206176758,
+          "totalActualHours": null,
+          "dueDate": "2023-10-23T04:00:00Z",
+          "dateFinished": "2023-10-25T14:18:53Z",
+          "itemNumber": 1,
+          "uniqueID": 507,
+          "unitPriceForeign": null
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:16Z"
+}

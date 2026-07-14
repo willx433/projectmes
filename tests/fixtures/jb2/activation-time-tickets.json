@@ -1,0 +1,29 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/time-tickets",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "employeeCode": 100,
+          "employeeName": "Corey Robert",
+          "enteredDate": "2023-10-17T20:13:00Z",
+          "enteredBy": "DATACOL",
+          "searchDate": 15996,
+          "uniqueID": 12,
+          "ticketDate": "2023-10-17T04:00:00Z",
+          "lastModDate": null,
+          "lastModUser": null
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:23Z"
+}

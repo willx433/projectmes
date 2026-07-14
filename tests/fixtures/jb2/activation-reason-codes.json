@@ -1,0 +1,28 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/reason-codes",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "reasonCode": "BAD DIMNSION",
+          "uniqueID": 4,
+          "description": "Dimension out of specification",
+          "reasonCodeID": 21,
+          "lastModDate": "2024-03-06T14:08:51Z",
+          "lastModUser": "supervisor",
+          "active": true,
+          "createRMA": true
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:21Z"
+}

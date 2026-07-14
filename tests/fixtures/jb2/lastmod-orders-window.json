@@ -1,0 +1,99 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/orders",
+    "params": {
+      "lastModDate[gte]": "2020-01-01T00:00:00Z",
+      "take": 5
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "orderNumber": "10008",
+          "customerCode": "AGW STOCK",
+          "customerDescription": "AGW Stock",
+          "PONumber": null,
+          "dateEntered": "2023-10-17T11:36:35Z",
+          "salesID": "HOUSE",
+          "termsCode": null,
+          "orderTotal": 0.0,
+          "status": "Closed",
+          "territory": "",
+          "currencyCode": "USD",
+          "uniqueID": 30,
+          "lastModDate": "2023-10-25T14:30:13Z",
+          "orderTotalForeign": null
+        },
+        {
+          "orderNumber": "10009",
+          "customerCode": "AGW STOCK",
+          "customerDescription": "AGW Stock",
+          "PONumber": null,
+          "dateEntered": "2023-10-17T11:58:22Z",
+          "salesID": "HOUSE",
+          "termsCode": null,
+          "orderTotal": 0.0,
+          "status": "Closed",
+          "territory": "",
+          "currencyCode": "USD",
+          "uniqueID": 33,
+          "lastModDate": "2023-11-20T17:16:01Z",
+          "orderTotalForeign": null
+        },
+        {
+          "orderNumber": "10010",
+          "customerCode": "AGW STOCK",
+          "customerDescription": "AGW Stock",
+          "PONumber": null,
+          "dateEntered": "2023-10-17T12:06:18Z",
+          "salesID": "HOUSE",
+          "termsCode": null,
+          "orderTotal": 0.0,
+          "status": "Closed",
+          "territory": "",
+          "currencyCode": "USD",
+          "uniqueID": 36,
+          "lastModDate": "2023-12-04T12:55:50Z",
+          "orderTotalForeign": null
+        },
+        {
+          "orderNumber": "10011",
+          "customerCode": "AGW STOCK",
+          "customerDescription": "AGW Stock",
+          "PONumber": null,
+          "dateEntered": "2023-10-17T16:41:54Z",
+          "salesID": "HOUSE",
+          "termsCode": null,
+          "orderTotal": 0.0,
+          "status": "Closed",
+          "territory": "",
+          "currencyCode": "USD",
+          "uniqueID": 39,
+          "lastModDate": "2023-11-15T19:32:33Z",
+          "orderTotalForeign": null
+        },
+        {
+          "orderNumber": "10014",
+          "customerCode": "AGW STOCK",
+          "customerDescription": "AGW Stock",
+          "PONumber": null,
+          "dateEntered": "2023-10-19T10:25:44Z",
+          "salesID": "HOUSE",
+          "termsCode": null,
+          "orderTotal": 0.0,
+          "status": "Closed",
+          "territory": "",
+          "currencyCode": "USD",
+          "uniqueID": 42,
+          "lastModDate": "2023-11-15T17:49:37Z",
+          "orderTotalForeign": null
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:51:25Z"
+}

@@ -1,0 +1,35 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/work-centers",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "workCenter": 101,
+          "description": "Swiss (SS327)",
+          "departmentNumber": "CNC SHOP",
+          "burdenRate": 25.11,
+          "queueTime": 0.0,
+          "queueUnit": "M",
+          "laborAccount": null,
+          "laborRate": 262.29,
+          "shortName": "Swiss",
+          "attendanceCode": "1",
+          "operationCode": "SWISS",
+          "capacityFactor": 1.0,
+          "uniqueID": 1,
+          "lastModDate": "2025-05-15T11:44:10Z",
+          "active": false
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:20Z"
+}

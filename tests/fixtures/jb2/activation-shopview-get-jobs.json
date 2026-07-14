@@ -1,0 +1,26 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/shopview/get-jobs",
+    "params": {}
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body_summary": {
+      "note": "No take/skip/filter params exist per openapi spec (empty parameter list). Endpoint returns the FULL unfiltered job dump. Observed twice: call 1 -> 200 OK in 29.9s, 18437821 bytes (~18MB). call 2 -> 504 upstream request timeout at 30.1s, body 'upstream request timeout'. Body too large to store verbatim in a fixture; not persisted.",
+      "call_1": {
+        "status": 200,
+        "elapsed_seconds": 29.9,
+        "response_bytes": 18437821
+      },
+      "call_2": {
+        "status": 504,
+        "elapsed_seconds": 30.1,
+        "response_bytes": 24,
+        "body": "upstream request timeout"
+      }
+    }
+  },
+  "captured_at": "2026-07-14T17:51:00Z"
+}

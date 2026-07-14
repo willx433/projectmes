@@ -1,0 +1,94 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/eci-aps/get-schedule",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "StartDateProject": "07/23/2024 16:08",
+      "EndDateProject": "04/27/2029 14:34",
+      "Data_note": "full Data array has 29 entries and is large (~6.5MB); truncated to 2 samples below. take=1 param had no effect (not supported per spec's empty parameter list).",
+      "Data_count": 29,
+      "Data_sample": [
+        {
+          "TaskId": 5009,
+          "WorkCenter": "BLAST",
+          "DisplayName": "BLAST",
+          "StartDate": "06/23/2025 07:30",
+          "EndDate": "09/24/2026 23:39",
+          "SetupPct": 0.0,
+          "Jobs": [
+            {
+              "TaskId": 5010,
+              "OrderNo": "21035",
+              "JobNo": "21035-01",
+              "StepNo": "10",
+              "Description": "Media Blast",
+              "EmployeeCode": "",
+              "EmployeeName": null,
+              "Operation": "BLAST",
+              "SetupTime": "1",
+              "TimeUnit": "Minutes",
+              "SetupPct": 2.74,
+              "CycleTime": "0.75",
+              "TotalCycleTime": "0.5 Hours",
+              "CycleUnit": "Minutes",
+              "StartDate": "06/23/2025 07:30",
+              "EndDate": "06/23/2025 08:06",
+              "ActualStartDate": "",
+              "ActualEndDate": null,
+              "Duration": 0.6077777777777778,
+              "ActualTotalHours": 0.0,
+              "WorkCenter": "BLAST"
+            }
+          ],
+          "Duration": 11008.156111111111,
+          "IsParent": true,
+          "Jobs_count": 764
+        },
+        {
+          "TaskId": 5980,
+          "WorkCenter": "BLEND - BT",
+          "DisplayName": "BLEND - BT",
+          "StartDate": "08/21/2025 14:58",
+          "EndDate": "01/24/2029 13:48",
+          "SetupPct": 0.0,
+          "Jobs": [
+            {
+              "TaskId": 5981,
+              "OrderNo": "B-537838",
+              "JobNo": "B-537838-01",
+              "StepNo": "50",
+              "Description": "Finish Sanding - Blend Beavertail and Frame",
+              "EmployeeCode": "",
+              "EmployeeName": null,
+              "Operation": "SAND",
+              "SetupTime": "",
+              "TimeUnit": "Minutes",
+              "SetupPct": 0.0,
+              "CycleTime": "15",
+              "TotalCycleTime": "0.25 Hours",
+              "CycleUnit": "Minutes",
+              "StartDate": "08/21/2025 14:58",
+              "EndDate": "08/21/2025 15:13",
+              "ActualStartDate": "",
+              "ActualEndDate": null,
+              "Duration": 0.25,
+              "ActualTotalHours": 0.0,
+              "WorkCenter": "BLEND - BT"
+            }
+          ],
+          "Duration": 30046.833333333332,
+          "IsParent": true,
+          "Jobs_count": 641
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:28Z"
+}

@@ -1,0 +1,49 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/job-requirements",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "orderNumber": "21792",
+          "jobNumber": "21792-01",
+          "partNumber": "260-2006.1",
+          "partDescription": "Finish Coating",
+          "vendorCode": "ND INDUSTRY",
+          "quantityToBuy": 5000.0,
+          "jobDue": "2025-07-29T12:00:20Z",
+          "dateProcessed": "2025-07-29T12:00:20Z",
+          "productCode": "FASTENERS",
+          "workCode": "",
+          "stepNumber": 10,
+          "leadTime": 0,
+          "cost": 0.0,
+          "stockingUnit": "EA",
+          "price": 0.0,
+          "pricingUnit": "EA",
+          "purchaseQuantity": 5000.0,
+          "purchaseUnit": "EA",
+          "setupCharge": 0.0,
+          "GLCode": null,
+          "PONumber": null,
+          "PODate": null,
+          "temporaryJobDue": null,
+          "uniqueID": 6213,
+          "lastModDate": "2025-07-29T12:00:20Z",
+          "lastModUser": "TED",
+          "POItemNumber": null,
+          "outsideService": true,
+          "certificationRequired": false
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:19Z"
+}

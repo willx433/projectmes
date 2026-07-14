@@ -1,0 +1,45 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/time-ticket-details",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "employeeCode": 129,
+          "comments": null,
+          "employeeName": "Jacob Washburn",
+          "jobNumber": "14467-01",
+          "workCenter": 109,
+          "operationNumber": 105,
+          "payrollRate": 1,
+          "stepNumber": 10,
+          "machinesRun": 1,
+          "piecesFinished": 0.0,
+          "piecesScrapped": 0.0,
+          "cycleTime": 3.5667,
+          "setupTime": 0.0,
+          "shift": 1,
+          "billingRate": 1,
+          "actualPayRate": null,
+          "manHours": 0.0,
+          "machineHours": 3.5667,
+          "uniqueID": 39174,
+          "numberMachinesForJob": 1.0,
+          "onlineID": 5670,
+          "ticketDate": "2024-08-19T04:00:00Z",
+          "lastModDate": "2024-08-20T12:27:55Z",
+          "lastModUser": "jacobw",
+          "timeTicketGUID": "adc9fd99-c124-4072-ba46-074db765b7ee"
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:24Z"
+}

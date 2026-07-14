@@ -1,0 +1,56 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/order-routings",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "jobStatus": "Closed",
+          "jobClosedDate": "2025-03-07T16:36:26Z",
+          "actualEndDate": null,
+          "actualPiecesGood": 0,
+          "actualPiecesScrap": 0,
+          "actualStartDate": null,
+          "burdenRate": 50.0,
+          "departmentNumber": "FINISHING",
+          "description": "Finish Coating",
+          "employeeCode": "",
+          "estimatedEndDate": "2025-01-07T18:53:31Z",
+          "estimatedQuantity": 1,
+          "estimatedStartDate": "2025-01-07T18:53:31Z",
+          "itemNumber": 1,
+          "jobNumber": "B-482533-01",
+          "laborRate": 30.75,
+          "lastModDate": "2025-03-07T17:06:28Z",
+          "leadTime": 0,
+          "machinesRun": 1,
+          "numberMachinesForJob": 1.0,
+          "operationCode": "COATING",
+          "orderNumber": "B-482533",
+          "uniqueID": 131072,
+          "partNumber": "B-482533 - EREBUS - 9R",
+          "shift2DefaultEmployeeCode": "",
+          "shift3DefaultEmployeeCode": "",
+          "status": "Finished",
+          "stepNumber": 60,
+          "timeUnit": null,
+          "totalActualHours": 0.0,
+          "total": null,
+          "totalEstimatedHours": 0.0,
+          "totalHoursLeft": 0.0,
+          "vendorCode": null,
+          "workCenter": "FINISHES",
+          "workCenterOrVendor": "WORK"
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:17Z"
+}

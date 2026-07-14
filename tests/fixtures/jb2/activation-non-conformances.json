@@ -1,0 +1,56 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/non-conformances",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "comment": null,
+          "correctiveActionNumber": null,
+          "customerCode": "AGW STOCK",
+          "customerPONumber": "RAFFERTY FRAMES",
+          "department": null,
+          "disposition": null,
+          "employeeCode": null,
+          "enterBy": "andrewc",
+          "enterDate": "2024-02-29T15:08:58Z",
+          "inspectedBy": null,
+          "jobNumber": null,
+          "lastModDate": "2024-02-29T15:08:58Z",
+          "lastModUser": "andrewc",
+          "lotNumber": null,
+          "ncDescription": "Machine Error",
+          "ncPrinted": "Y",
+          "ncCode": null,
+          "ncDate": "2024-02-29T15:08:58Z",
+          "ncNumber": "10005",
+          "uniqueID": 6,
+          "orderNumber": "11370",
+          "other": null,
+          "partDescription": "Rafferty Customs Frames",
+          "partNumber": "110-5200",
+          "poNumber": null,
+          "processDate": null,
+          "quantityReturned": null,
+          "quantity": 2,
+          "reasonCode": "MACH ERR",
+          "responsibleMgr": null,
+          "returnItemNumber": 0,
+          "returnNumber": "10018",
+          "returnType": "INTERNAL",
+          "status": "Open",
+          "vendorCode": null,
+          "vendorRMANumber": null
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:51:20Z"
+}

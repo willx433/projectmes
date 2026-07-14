@@ -1,0 +1,35 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/order-line-items",
+    "params": {
+      "lastModDate[gte]": "2020-01-01T00:00:00Z",
+      "take": 3,
+      "fields": "jobNumber,itemNumber,lastModDate"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "jobNumber": "10008-01",
+          "itemNumber": 1,
+          "lastModDate": "2023-10-25T14:30:13Z"
+        },
+        {
+          "jobNumber": "10009-01",
+          "itemNumber": 1,
+          "lastModDate": "2023-11-20T17:16:01Z"
+        },
+        {
+          "jobNumber": "10010-01",
+          "itemNumber": 1,
+          "lastModDate": "2023-12-04T12:55:50Z"
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:51:37Z"
+}

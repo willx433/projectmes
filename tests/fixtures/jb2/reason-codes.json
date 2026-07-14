@@ -1,0 +1,214 @@
+{
+  "Data": [
+    {
+      "reasonCode": "BAD DIMNSION",
+      "uniqueID": 4,
+      "description": "Dimension out of specification",
+      "reasonCodeID": 21,
+      "lastModDate": "2024-03-06T14:08:51Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "BURRS",
+      "uniqueID": 20,
+      "description": "Burrs",
+      "reasonCodeID": 20,
+      "lastModDate": "2024-03-06T14:08:48Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "COSMETIC",
+      "uniqueID": 3,
+      "description": "Scratch/Cosmetic issue",
+      "reasonCodeID": 19,
+      "lastModDate": "2024-03-06T14:08:44Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "DAMAGED MATL",
+      "uniqueID": 10,
+      "description": "Damaged material",
+      "reasonCodeID": 2,
+      "lastModDate": "2024-03-06T14:08:15Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "FAILED TEST",
+      "uniqueID": 26,
+      "description": "Good Heat, Failed Hardness",
+      "reasonCodeID": 26,
+      "lastModDate": "2024-03-06T14:09:00Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "G.D.&T.",
+      "uniqueID": 22,
+      "description": "G.D.&T. out of tolerance",
+      "reasonCodeID": 22,
+      "lastModDate": "2024-03-06T14:08:55Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "MACH ERR",
+      "uniqueID": 2,
+      "description": "Machine Error",
+      "reasonCodeID": 14,
+      "lastModDate": "2024-03-06T14:08:35Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "MACH F ERR",
+      "uniqueID": 34,
+      "description": "Machine Fixturing Error",
+      "reasonCodeID": 48,
+      "lastModDate": "2024-03-06T14:09:26Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "MACH T ERR",
+      "uniqueID": 33,
+      "description": "Machine Tool Error",
+      "reasonCodeID": 45,
+      "lastModDate": "2024-03-06T14:09:22Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "OP DIM ERR",
+      "uniqueID": 29,
+      "description": "Dimension not measured by Operator",
+      "reasonCodeID": 33,
+      "lastModDate": "2024-03-06T19:51:03Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": false
+    },
+    {
+      "reasonCode": "OP LOAD ERR",
+      "uniqueID": 1,
+      "description": "Operator Loading Error",
+      "reasonCodeID": 1,
+      "lastModDate": "2024-03-06T14:08:10Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "OP SET ERR",
+      "uniqueID": 30,
+      "description": "Operator Set Up Error",
+      "reasonCodeID": 36,
+      "lastModDate": "2024-03-06T14:09:11Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "OTHER",
+      "uniqueID": 28,
+      "description": "Other",
+      "reasonCodeID": 28,
+      "lastModDate": "2024-03-06T14:09:04Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "REWRK - FIN",
+      "uniqueID": 7,
+      "description": "Rework Finish",
+      "reasonCodeID": 51,
+      "lastModDate": "2024-03-06T14:09:29Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "REWRK - MACH",
+      "uniqueID": 5,
+      "description": "Machine Rework",
+      "reasonCodeID": 39,
+      "lastModDate": "2024-03-06T14:09:14Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "REWRK - MAN",
+      "uniqueID": 6,
+      "description": "Manual Rework",
+      "reasonCodeID": 42,
+      "lastModDate": "2024-03-06T14:09:18Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "TSTSCRAP",
+      "uniqueID": 35,
+      "description": "PLANNED TESTING SCRAP",
+      "reasonCodeID": 54,
+      "lastModDate": "2024-03-22T13:30:00Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": false
+    },
+    {
+      "reasonCode": "WRONG FINISH",
+      "uniqueID": 18,
+      "description": "Noncompliant Finish",
+      "reasonCodeID": 18,
+      "lastModDate": "2024-03-06T14:08:40Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "WRONG HEAT",
+      "uniqueID": 12,
+      "description": "Heat Treat Error",
+      "reasonCodeID": 6,
+      "lastModDate": "2024-03-06T14:08:22Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "WRONG MATL",
+      "uniqueID": 11,
+      "description": "Incorrect material",
+      "reasonCodeID": 3,
+      "lastModDate": "2024-03-06T14:08:26Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    },
+    {
+      "reasonCode": "WRONG SETUP",
+      "uniqueID": 8,
+      "description": "Setup incorrect",
+      "reasonCodeID": 8,
+      "lastModDate": "2024-03-06T14:08:31Z",
+      "lastModUser": "supervisor",
+      "active": true,
+      "createRMA": true
+    }
+  ]
+}

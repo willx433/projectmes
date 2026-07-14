@@ -1,0 +1,33 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/employees",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "employeeCode": 1,
+          "employeeName": "Adam Nilson",
+          "shiftID": 1,
+          "rate1": null,
+          "city": null,
+          "state": null,
+          "country": null,
+          "phone": null,
+          "departmentNumber": "EXECUTIVE",
+          "employeeShortName": "ADAM NILSON",
+          "uniqueID": 108,
+          "lastModDate": "2024-07-09T12:31:45Z",
+          "active": true
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:21Z"
+}

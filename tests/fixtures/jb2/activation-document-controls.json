@@ -1,0 +1,47 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/document-controls",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "documentNumber": "110-1001",
+          "documentType": "DRAWING",
+          "description": "AE 5.0 TAC",
+          "documentDate": "2024-02-16T13:24:52Z",
+          "documentStatus": "RELEASED",
+          "revision": "C",
+          "revisionDate": "2024-02-16T13:33:00Z",
+          "fileLocation": "110-1001 AGW AE FRAME 5 TAC rev C.PDF",
+          "dateEntered": "2024-02-16T13:31:55Z",
+          "enteredBy": "SEANB",
+          "proposedBy": "63",
+          "proposalDate": "2024-02-16T13:33:22Z",
+          "proposalComments": "INITIAL UPLOAD",
+          "approvedBy": "73",
+          "approvalDate": "2024-02-16T13:33:37Z",
+          "approvalComments": null,
+          "releasedBy": "97",
+          "releaseDate": "2024-08-21T15:00:14Z",
+          "releaseComments": "Update Document Control",
+          "retiredBy": null,
+          "retirementDate": null,
+          "retirementComments": null,
+          "printed": null,
+          "uniqueID": 3,
+          "repositoryID": 462,
+          "lastModDate": "2024-08-21T15:01:24Z",
+          "lastModUser": "jacobw"
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:22Z"
+}

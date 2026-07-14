@@ -1,0 +1,37 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/operation-codes",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "operationCode": "ASSEMBLY",
+          "operationNumber": 115,
+          "defaultSetupTime": 5.0,
+          "defaultTimeUnit": "M",
+          "defaultCycleTime": 1.0,
+          "defaultCycleUnit": "M",
+          "percentEfficiency": 100,
+          "machinesRunByOperator": 1,
+          "scrapPercent": 0.0,
+          "teamSize": 1,
+          "description": "Small Part Assembly",
+          "machinesJobRunOn": 1.0,
+          "uniqueID": 36,
+          "lastModDate": "2023-10-03T18:36:48Z",
+          "lastModUser": "supervisor",
+          "active": true,
+          "isUnattendedOperation": false
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:20Z"
+}

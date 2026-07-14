@@ -1,0 +1,30 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/attendance-tickets",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "employeeCode": 5,
+          "employeeName": "Finley Killeen",
+          "enteredDate": "2025-05-03T02:49:00Z",
+          "enteredBy": "DATACOL",
+          "searchDate": 16559,
+          "uniqueID": 1590,
+          "ticketDate": "2025-05-02T04:00:00Z",
+          "lastModDate": null,
+          "lastModUser": null,
+          "isExported": false
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:24Z"
+}

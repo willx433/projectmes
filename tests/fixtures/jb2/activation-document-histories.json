@@ -1,0 +1,31 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/document-histories",
+    "params": {
+      "take": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "Data": [
+        {
+          "documentNumber": "10046",
+          "revision": "NEW",
+          "revisionDate": "2023-12-14T05:00:00Z",
+          "comments": "Original",
+          "userID": "jacobw",
+          "fileLocation": "110-3101 Rev B Ares Grip Magazine Clearance Change 12-14-2023.pdf",
+          "updatedParts": null,
+          "updatedJobs": null,
+          "spunOffFile": null,
+          "uniqueID": 138,
+          "repositoryID": 594
+        }
+      ]
+    }
+  },
+  "captured_at": "2026-07-14T17:47:22Z"
+}
