@@ -24,4 +24,6 @@ system) is archived history, not part of this series.
 
 | CR-012 | 2026-07-14 | Fable (Gate 0) | Gate 0 issued as **CONDITIONAL PASS**: 3 write-path `[VERIFY-JB2]` items blocked on Will (dummy job + write authorization) are re-gated as a precondition of **Gate 3** (first consumer: P3-10) instead of blocking Gates 1–2. Remediation task P0-R1 runs the moment the job number arrives. | §4.7, §19 Phase 0 | Sonnet (P0-R1) | Approved | Gate 3 blocked until P0-R1 done |
 
+| CR-013 | 2026-07-14 | P2-01 (Fable-reviewed) | DD §10 `instruction_sets` uniqueness `(product_id, operation_match, version)` unimplementable portably (jsonb in unique constraint); substituted `(product_id, title, version)` + Postgres partial unique index for global failure codes. | §10 Library | Sonnet (P2-01) | Approved | none |
+
 *All future scope changes: add a row with status `Proposed`, get Fable (or Will) approval, then code.*

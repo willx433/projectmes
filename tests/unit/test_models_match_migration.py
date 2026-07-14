@@ -17,6 +17,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
+from app.domain import models_library  # noqa: F401  (registers Library tables on Base.metadata)
 from app.domain.models_jb2 import Base
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -37,6 +38,12 @@ EXPECTED_TABLES = {
     "mapping_exceptions",
     "sync_checkpoints",
     "display_cache",
+    "products",
+    "product_part_map",
+    "instruction_sets",
+    "steps",
+    "substeps",
+    "failure_codes",
 }
 
 _CREATE_TABLE_RE = re.compile(r"CREATE TABLE (\w+) \((.*?)\n\);", re.DOTALL)
