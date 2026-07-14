@@ -1,0 +1,10 @@
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+jinja2>=3.1,<4.0
+httpx>=0.27,<1.0
+psycopg[binary]>=3.1,<4.0
+SQLAlchemy>=2.0,<3.0
+alembic>=1.13,<2.0
+python-multipart>=0.0.9,<0.1
+weasyprint>=61,<62
+segno>=1.6,<2.0
