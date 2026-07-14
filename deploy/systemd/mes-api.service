@@ -1,0 +1,24 @@
+[Unit]
+Description=Atlas MES API (uvicorn app.main:app)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=mes
+Group=mes
+WorkingDirectory=/opt/mes
+EnvironmentFile=/etc/mes/.env
+ExecStart=/opt/mes/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 4
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# hardening (safe defaults for a single-purpose app service)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

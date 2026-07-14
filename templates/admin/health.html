@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Admin · Health — Atlas MES{% endblock %}
+{% block header_title %}Health{% endblock %}
+
+{% block main %}
+
+{% if jb2_status.breaker_state == "open" %}
+<div class="banner banner-error">
+  JB2 circuit breaker is OPEN — outbox writes and sync are backing up. Last success:
+  {{ jb2_status.last_success_at.isoformat() if jb2_status.last_success_at else "never" }}
+</div>
+{% elif jb2_status.breaker_state == "half-open" %}
+<div class="banner banner-warn">JB2 circuit breaker is half-open — probing for recovery.</div>
+{% endif %}
+
+<section class="card">
+  <h2>Sync runs</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Resource</th><th>Last run</th><th>Fetched</th><th>Changed</th>
+          <th>Checkpoint</th><th>Error</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in sync_resources %}
+        <tr class="{{ 'row-bad' if r.stalled or r.error else '' }}">
+          <td>{{ r.resource }}</td>
+          <td>{{ r.last_run_at or "never" }}</td>
+          <td>{{ r.fetched if r.fetched is not none else "—" }}</td>
+          <td>{{ r.changed if r.changed is not none else "—" }}</td>
+          <td>{{ r.checkpoint or "—" }}</td>
+          <td>{{ r.error or "—" }}</td>
+          <td>{{ "STALLED" if r.stalled else "ok" }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7">No sync runs recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Outbox queue</h2>
+  <p class="counts">
+    pending {{ outbox.counts.pending }} ·
+    sent {{ outbox.counts.sent }} ·
+    confirmed {{ outbox.counts.confirmed }} ·
+    failed {{ outbox.counts.failed }}
+    {% if outbox.oldest_pending_age_s %}
+      · oldest pending age {{ "%.0f"|format(outbox.oldest_pending_age_s) }}s
+    {% endif %}
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Kind</th><th>Work order</th><th>Attempts</th><th>Last error</th><th>Created</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for row in outbox.parked %}
+        <tr class="row-bad">
+          <td>{{ row.kind }}</td>
+          <td>{{ row.work_order_id or "—" }}</td>
+          <td>{{ row.attempts }}</td>
+          <td>{{ row.last_error or "—" }}</td>
+          <td>{{ row.created_at }}</td>
+          <td>
+            <form method="post" action="/admin/outbox/{{ row.id }}/replay">
+              <button type="submit" class="btn">Replay</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6">No parked outbox rows.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Mapping exceptions</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Kind</th><th>Value</th><th>Created</th></tr></thead>
+      <tbody>
+        {% for exc in mapping_exceptions %}
+        <tr>
+          <td>{{ exc.kind }}</td>
+          <td>{{ exc.value }}</td>
+          <td>{{ exc.created_at.isoformat() }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">No unresolved mapping exceptions.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}

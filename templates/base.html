@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Atlas MES{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="appbar">
+    <div class="wordmark">Atlas <span>MES</span></div>
+    <span class="title">{% block header_title %}{% endblock %}</span>
+  </header>
+  <main class="page">
+    {% if error %}<div class="banner banner-error">{{ error }}</div>{% endif %}
+    {% block main %}{% endblock %}
+  </main>
+</body>
+</html>

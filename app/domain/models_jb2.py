@@ -245,3 +245,20 @@ class SyncCheckpoint(Base):
     resource: Mapped[str] = mapped_column(Text, primary_key=True)
     checkpoint: Mapped[datetime | None] = mapped_column(nullable=True)
     updated_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+
+
+class DisplayCache(Base):
+    """Last-good payload for a display-only JB2 feed (P1-13, CR-011).
+
+    `shopview/get-jobs` / `eci-aps/get-schedule` ignore all query params and
+    are slow/unpredictable (18 MB / 6.5 MB, 30s+, observed 504s) -- polled at
+    low cadence with a long timeout and cached here so `GET /api/v1/jb2-*`
+    can serve the last successful pull even while JB2 itself is down or
+    timing out. One row per feed (`key` = the sync resource name).
+    """
+
+    __tablename__ = "display_cache"
+
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    payload: Mapped[dict] = mapped_column(_JSONB, nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(nullable=False)

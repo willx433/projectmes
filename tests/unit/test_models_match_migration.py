@@ -36,6 +36,7 @@ EXPECTED_TABLES = {
     "jb2_outbox",
     "mapping_exceptions",
     "sync_checkpoints",
+    "display_cache",
 }
 
 _CREATE_TABLE_RE = re.compile(r"CREATE TABLE (\w+) \((.*?)\n\);", re.DOTALL)

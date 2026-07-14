@@ -16,7 +16,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from sqlalchemy import select
+from sqlalchemy import Integer, select
 from sqlalchemy.orm import Session
 
 # findings §4: lastModDate is UTC, second-granularity, "...Z" suffix, no ms.
@@ -76,14 +76,22 @@ def upsert_records(
     changed = 0
     sync_time = now()
 
+    # Most mirrors key on the Text `jb2_id` column (str() is always right),
+    # but a couple of masters (P1-08: jb2_reason_codes.reason_number) key on
+    # their own natural Integer column instead -- cast to match so Postgres
+    # doesn't choke on a str bound against an integer column.
+    key_column = getattr(model, key_attr).property.columns[0]
+    key_is_int = isinstance(key_column.type, Integer)
+
     for record in records:
-        jb2_id = str(record[key_field])
+        raw_key = record[key_field]
+        key_value = int(raw_key) if key_is_int else str(raw_key)
         h = content_hash(record)
         raw_lm = record.get(last_modified_field)
         last_modified = parse_jb2_datetime(raw_lm) if raw_lm else None
 
         existing = session.scalars(
-            select(model).where(getattr(model, key_attr) == jb2_id)
+            select(model).where(getattr(model, key_attr) == key_value)
         ).one_or_none()
 
         if existing is not None and existing.content_hash == h:
@@ -94,7 +102,7 @@ def upsert_records(
 
         if existing is None:
             row = model(
-                **{key_attr: jb2_id},
+                **{key_attr: key_value},
                 payload=record,
                 content_hash=h,
                 jb2_last_modified=last_modified,

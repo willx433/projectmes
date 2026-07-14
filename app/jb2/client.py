@@ -24,6 +24,7 @@ import logging
 import random
 import threading
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable, Iterator
 
 import httpx
@@ -31,6 +32,38 @@ import httpx
 from app.config import Config
 
 logger = logging.getLogger("app.jb2.client")
+
+# Module-level JB2 call status (P1-10 admin health page), updated by every
+# Jb2Client instance's _call() -- the same place that already logs each
+# call.
+#
+# ponytail: process-local only. The sync worker and outbox drainer run as
+# separate systemd units (mes-sync, mes-outbox) from the API process serving
+# /health/jb2, so this only reflects calls made by a Jb2Client living in
+# *this* process. Fine for tests and any same-process client; upgrade to a
+# small persisted heartbeat row if the API process itself never calls JB2
+# and cross-process accuracy is needed post-P1-11.
+_status_lock = threading.Lock()
+_status: dict[str, Any] = {
+    "breaker_state": "closed",
+    "last_success_at": None,
+    "last_failure_at": None,
+}
+
+
+def _record_call_status(success: bool, breaker_state: str) -> None:
+    with _status_lock:
+        _status["breaker_state"] = breaker_state
+        if success:
+            _status["last_success_at"] = datetime.now(timezone.utc)
+        else:
+            _status["last_failure_at"] = datetime.now(timezone.utc)
+
+
+def get_jb2_status() -> dict[str, Any]:
+    """Snapshot of the module-level JB2 call status. See ponytail note above."""
+    with _status_lock:
+        return dict(_status)
 
 DEFAULT_TIMEOUT_S = 10.0
 TOKEN_REFRESH_MARGIN_S = 3300  # findings §1: TTL is 3600s, refresh with margin
@@ -140,6 +173,7 @@ class Jb2Client:
         timeout: float = DEFAULT_TIMEOUT_S,
         clock: Callable[[], float] = time.monotonic,
         sleeper: Callable[[float], None] = time.sleep,
+        on_call: Callable[[bool], None] | None = None,
     ) -> None:
         self._api_base = api_base_url.rstrip("/") + "/api/v1"
         self._auth_base = auth_base_url.rstrip("/")
@@ -153,6 +187,15 @@ class Jb2Client:
         self.breaker = CircuitBreaker(clock=clock)
         self._token: str | None = None
         self._token_obtained_at: float = float("-inf")
+        # Optional extra hook (P1-10): called with True/False after every
+        # breaker-relevant success/failure, on top of the always-on
+        # module-level status tracking (get_jb2_status()).
+        self.on_call = on_call
+
+    def _notify_call(self, *, success: bool) -> None:
+        _record_call_status(success, self.breaker.state)
+        if self.on_call is not None:
+            self.on_call(success)
 
     @classmethod
     def from_config(cls, config: Config, **kwargs: Any) -> "Jb2Client":
@@ -204,12 +247,18 @@ class Jb2Client:
         fields: list[str] | None = None,
         take: int | None = None,
         timeout: float | None = None,
+        unwrap: bool = True,
     ) -> Any:
         """GET a JB2 resource. Unwraps the `{"Data": [...]}` envelope transparently.
 
         Guards (findings-grounded): raises UnfilteredReadError unless the query
         carries a filter param or take=; raises Jb2Error on revisedDate[null]
         (known 500 on JB2, never send it).
+
+        ``unwrap=False`` returns the raw response body untouched -- needed for
+        `eci-aps/get-schedule` (CR-011, findings §1), whose envelope is
+        `{StartDateProject, EndDateProject, Data: [...]}`, not the plain
+        `{Data: [...]}` convention every other resource uses.
         """
         query = dict(params or {})
         if take is not None:
@@ -229,7 +278,7 @@ class Jb2Client:
         url = f"{self._api_base}{path if path.startswith('/') else '/' + path}"
         resp = self._call("GET", url, params=query, timeout=timeout)
         body = resp.json()
-        if isinstance(body, dict) and "Data" in body:
+        if unwrap and isinstance(body, dict) and "Data" in body:
             return body["Data"]
         return body
 
@@ -301,6 +350,7 @@ class Jb2Client:
                 self._log(url, None, attempt, start)
                 if attempt >= MAX_RETRIES:
                     self.breaker.record_failure()
+                    self._notify_call(success=False)
                     raise Jb2Error(f"network error calling {method} {url}") from exc
                 attempt += 1
                 self._sleeper(self._backoff_delay(attempt))
@@ -316,6 +366,7 @@ class Jb2Client:
             if resp.status_code >= 500:
                 if attempt >= MAX_RETRIES:
                     self.breaker.record_failure()
+                    self._notify_call(success=False)
                     raise Jb2Error(f"JB2 {method} {url} failed with {resp.status_code}")
                 attempt += 1
                 self._sleeper(self._backoff_delay(attempt))
@@ -329,6 +380,7 @@ class Jb2Client:
                 )
 
             self.breaker.record_success()
+            self._notify_call(success=True)
             return resp
 
     def _backoff_delay(self, attempt: int) -> float:

@@ -1,0 +1,23 @@
+# Atlas MES — Caddy config (DD §16.2). Prod topology is systemd (CR-002);
+# this file is placed at /etc/caddy/Caddyfile on the target server.
+mes.atlas.internal {
+    encode zstd gzip
+
+    handle /static/* {
+        root * /var/lib/mes/static
+        file_server
+    }
+
+    # PDFs / build records (P4-08) — auth enforced by the app before a link
+    # is ever issued; add forward_auth here if direct browsing needs gating.
+    handle /artifacts/* {
+        root * /var/lib/mes
+        file_server
+    }
+
+    reverse_proxy /api/* 127.0.0.1:8000
+    reverse_proxy /ws/*  127.0.0.1:8000
+    reverse_proxy 127.0.0.1:8000
+
+    tls internal
+}

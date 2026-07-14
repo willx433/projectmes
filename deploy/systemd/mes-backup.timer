@@ -1,0 +1,10 @@
+[Unit]
+Description=Nightly Atlas MES pg_dump (CR-008 stopgap)
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

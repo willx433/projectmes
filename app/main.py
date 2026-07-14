@@ -4,7 +4,10 @@ from __future__ import annotations
 import subprocess
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
+from app.api.display import router as display_router
+from app.api.health import router as health_router
 from app.config import REPO_ROOT
 from app.logging import configure_logging
 
@@ -29,6 +32,10 @@ def create_app() -> FastAPI:
     version = _read_version()  # read once at startup, not per-request
 
     app = FastAPI(title="Atlas MES")
+    app.state.version = version
+    app.mount("/static", StaticFiles(directory=str(REPO_ROOT / "static")), name="static")
+    app.include_router(health_router)
+    app.include_router(display_router)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

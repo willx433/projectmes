@@ -1,0 +1,30 @@
+# dev convenience only, prod is systemd (CR-002).
+# `docker compose -f deploy/dev/compose.yml up` for a local Postgres 16
+# (and optionally the api) while developing against fake-JB2 fixtures.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: mes
+      POSTGRES_PASSWORD: mes
+      POSTGRES_DB: mes
+    ports:
+      - "5432:5432"
+    volumes:
+      - mes-dev-pg:/var/lib/postgresql/data
+
+  # optional: run the API in-container instead of on the host venv.
+  # api:
+  #   build:
+  #     context: ../..
+  #     dockerfile: deploy/dev/Dockerfile
+  #   environment:
+  #     DATABASE_URL: postgresql://mes:mes@postgres:5432/mes
+  #   env_file: ../../.env
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     - postgres
+
+volumes:
+  mes-dev-pg:
