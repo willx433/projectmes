@@ -289,7 +289,7 @@ def test_finish_happy_path_closes_session_advances_unit_and_enqueues_writeback(c
     body = resp.json()
     assert body["code"] == "finished"
     assert body["unit_status"] == "in_transit"
-    assert len(body["outbox_ids"]) == 1  # only the detail id is returned (header rides along)
+    assert len(body["outbox_ids"]) == 1  # single nested time_ticket write per session (CR-018)
 
     db_session.expire_all()
     unit = db_session.get(Unit, unit.id)
@@ -301,22 +301,27 @@ def test_finish_happy_path_closes_session_advances_unit_and_enqueues_writeback(c
     assert closed_ws.close_reason == "finished"
 
     rows = db_session.execute(select(JB2Outbox)).scalars().all()
-    header = [r for r in rows if r.kind == "time_ticket"]
-    detail = [r for r in rows if r.kind == "time_ticket_detail"]
-    assert len(header) == 1
-    assert len(detail) == 1
+    assert len(rows) == 1
+    tt = rows[0]
+    assert tt.kind == "time_ticket"
 
     expected_key = writer.make_key(
         "wo", work_order.id, "unit", unit.unit_no, "op", plan_ops[0].seq, "session", ws.id,
     )
-    assert detail[0].idempotency_key == expected_key
-    payload = detail[0].payload
+    assert tt.idempotency_key == expected_key
+    payload = tt.payload
     assert payload["employeeCode"] == 42
-    assert payload["jobNumber"] == "10008-01"
-    assert payload["stepNumber"] == 1
-    assert payload["piecesFinished"] == 1
-    assert payload["piecesScrapped"] == 0
-    assert payload["timeStart"] is not None
+    assert payload["allowClosedJobs"] is True
+    assert "operationNumber" not in payload
+    assert "workCenter" not in payload
+    detail = payload["timeTicketDetails"][0]
+    assert detail["jobNumber"] == "10008-01"
+    assert detail["stepNumber"] == 1
+    assert detail["piecesFinished"] == 1
+    assert detail["piecesScrapped"] == 0
+    assert detail["timeStart"] is not None
+    assert len(detail["timeStart"]) <= 5  # HH:MM, not ISO (findings §2 item 2)
+    assert "cycleTime" not in detail  # JB2 derives it, we never send it
 
 
 def test_finish_blocked_when_steps_open(client, db_session):
@@ -495,12 +500,13 @@ def test_scrap_flow_creates_scrap_event_releases_box_replacement_and_enqueues_pi
     assert closed_ws.ended_at is not None
     assert closed_ws.close_reason == "finished"
 
-    detail = db_session.execute(
-        select(JB2Outbox).where(JB2Outbox.kind == "time_ticket_detail")
+    tt = db_session.execute(
+        select(JB2Outbox).where(JB2Outbox.kind == "time_ticket")
     ).scalars().one()
-    assert detail.payload["piecesScrapped"] == 1
-    assert detail.payload["piecesFinished"] == 0
-    assert detail.payload["reasonNumber"] == 21
+    detail = tt.payload["timeTicketDetails"][0]
+    assert detail["piecesScrapped"] == 1
+    assert detail["piecesFinished"] == 0
+    assert detail["reasonNumber"] == 21
 
 
 def test_scrap_requires_lead_authorizer(db_session):
@@ -666,10 +672,10 @@ def test_auto_closed_session_withholds_outbox_until_lead_confirm(db_session):
     db_session.expire_all()
     ws = db_session.get(WorkSession, ws.id)
     assert ws.lead_confirmed is True
-    detail = db_session.execute(
-        select(JB2Outbox).where(JB2Outbox.kind == "time_ticket_detail")
+    tt = db_session.execute(
+        select(JB2Outbox).where(JB2Outbox.kind == "time_ticket")
     ).scalars().one()
-    assert detail.payload["piecesFinished"] == 0
+    assert tt.payload["timeTicketDetails"][0]["piecesFinished"] == 0
 
 
 def test_lead_confirm_requires_lead_role(db_session):
@@ -724,11 +730,12 @@ def test_drain_against_fake_jb2_matches_expected_payload_and_zero_routing_patche
     assert all(outcome == "confirmed" for _id, outcome in outcomes)
 
     writes = state["received_writes"]
-    assert {w["path"] for w in writes} == {"/time-tickets", "/time-ticket-details"}
+    assert {w["path"] for w in writes} == {"/time-tickets"}  # single nested write (CR-018)
     assert not any(w["path"].startswith("/order-routings") for w in writes)  # CR-010
 
-    detail_write = next(w for w in writes if w["path"] == "/time-ticket-details")
-    assert detail_write["body"]["jobNumber"] == "10008-01"
-    assert detail_write["body"]["employeeCode"] == 55
-    assert detail_write["body"]["stepNumber"] == 1
-    assert detail_write["body"]["piecesFinished"] == 1
+    tt_write = next(w for w in writes if w["path"] == "/time-tickets")
+    assert tt_write["body"]["employeeCode"] == 55
+    detail = tt_write["body"]["timeTicketDetails"][0]
+    assert detail["jobNumber"] == "10008-01"
+    assert detail["stepNumber"] == 1
+    assert detail["piecesFinished"] == 1

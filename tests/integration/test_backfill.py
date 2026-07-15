@@ -238,14 +238,16 @@ def test_backfill_records_substeps_measurement_and_finish_like_live_station(clie
     assert ws.close_reason == "finished"
     assert ws.operator_id == performed_by.id
 
-    # identical outbox write to a live finish (header + detail).
+    # identical outbox write to a live finish: one nested time_ticket row
+    # (CR-018 -- header+detail ride together, no separate header row).
     outbox_rows = db_session.execute(select(JB2Outbox)).scalars().all()
-    kinds = sorted(r.kind for r in outbox_rows)
-    assert kinds == ["time_ticket", "time_ticket_detail"]
-    detail = next(r for r in outbox_rows if r.kind == "time_ticket_detail")
-    assert detail.payload["employeeCode"] == 42
-    assert detail.payload["jobNumber"] == "10008-01"
-    assert detail.payload["piecesFinished"] == 1
+    assert len(outbox_rows) == 1
+    tt = outbox_rows[0]
+    assert tt.kind == "time_ticket"
+    assert tt.payload["employeeCode"] == 42
+    detail = tt.payload["timeTicketDetails"][0]
+    assert detail["jobNumber"] == "10008-01"
+    assert detail["piecesFinished"] == 1
 
 
 def test_backfill_marker_present_in_event_timeline(client, db_session):

@@ -114,13 +114,24 @@ def test_drain_posts_to_fake_jb2_and_never_double_posts(session, jb2_client, sta
     assert row.confirmed_at is not None
 
 
-def test_time_ticket_detail_kind_posts_to_detail_endpoint(session, jb2_client, state):
+def test_time_ticket_detail_kind_is_deprecated_and_parks_without_a_network_call(
+    session, jb2_client, state
+):
+    """CR-018: a standalone `time_ticket_detail` write is no longer a thing
+    (real JB2 400s "Cannot find Time Ticket..." on it -- see
+    docs/jb2-api-findings.md §2 item 1). Any row still carrying this kind
+    (e.g. a pre-rework leftover) must park immediately with a clear error,
+    never reach the network."""
     writer.enqueue(session, "time_ticket_detail", _payload(piecesFinished=5), "wo:1:op:10:detail")
     session.commit()
 
-    drainer.drain_once(session, jb2_client)
+    outcomes = drainer.drain_once(session, jb2_client)
+    assert outcomes[0][1] == "failed"
+    assert state["received_writes"] == []
 
-    assert state["received_writes"][0]["path"] == "/time-ticket-details"
+    row = _only_row(session)
+    assert row.status == "failed"
+    assert "deprecated" in row.last_error
 
 
 # -- per-work-order FIFO -----------------------------------------------------

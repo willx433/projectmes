@@ -344,7 +344,7 @@ async def test_dashboard_stream_emits_refresh_after_new_event(
 
     reader = asyncio.ensure_future(_read_until_refresh())
     await _emit_after_baseline()
-    assert await asyncio.wait_for(reader, timeout=10)  # generous: poll loop can be starved under CI load
+    assert await asyncio.wait_for(reader, timeout=10)  # generous: poll can starve under CI load
 
 
 def test_tv_mode_hides_admin_nav(client, board, monkeypatch):

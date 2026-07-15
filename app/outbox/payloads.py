@@ -1,12 +1,17 @@
-"""JB2 write-back payload builders (P3-10, DD §4.4 as amended by CR-010,
-docs/jb2-api-findings.md §2). Time-ticket details are the **sole** JB2
-write-back for operation completion/scrap -- there is no routing-step PATCH
-(CR-010: `OrderRoutingUpdate` is `additionalProperties:false` and doesn't
-carry actuals/status at all). Every enqueue in this module rides the
-existing `time_ticket`/`time_ticket_detail` outbox kinds, which
-`app/outbox/drainer.py`'s `DEFAULT_SENDERS` already posts to
-`POST /time-tickets` / `POST /time-ticket-details` verbatim -- no new
-sender registration needed here.
+"""JB2 write-back payload builders (P3-10, DD §4.4 as amended by CR-010 and
+reworked by CR-018 against live-verified findings, docs/jb2-api-findings.md
+§2 P0-R1). Time-ticket writes are the **sole** JB2 write-back for operation
+completion/scrap -- there is no routing-step PATCH (CR-010: `OrderRoutingUpdate`
+is `additionalProperties:false` and doesn't carry actuals/status at all).
+
+**CR-018 rework:** live sandbox writes proved the header+detail two-call
+model (separate `ensure_time_ticket_header` + `time_ticket_detail` POST)
+wrong -- a standalone `POST /time-ticket-details` against a separately
+created header 400s ("Cannot find Time Ticket..."). The only write that
+works is ONE nested `POST /time-tickets` carrying `timeTicketDetails: [{...}]`.
+So there is one outbox row (`kind="time_ticket"`) per closed work session,
+built by `build_time_ticket` below, and `app/outbox/drainer.py` has a single
+`time_ticket` sender that POSTs the whole nested body.
 
 Three call sites enqueue through `enqueue_finish_writeback` (the one public
 entry point): `app/api/operations.py`'s finish endpoint (pieces_finished=1),
@@ -29,8 +34,6 @@ from app.domain.models_floor import Operator, SessionPause, WorkSession
 from app.domain.models_jb2 import (
     JB2Employee,
     JB2OrderLineItem,
-    JB2OrderRouting,
-    JB2WorkCenter,
     MappingException,
 )
 from app.outbox import writer
@@ -86,31 +89,6 @@ def _job_number(session: Session, work_order: WorkOrder | None) -> str | None:
     return (line_item.payload or {}).get("jobNumber")
 
 
-def _op_work_center_code(session: Session, plan_op: PlanOperation) -> str | None:
-    if plan_op.jb2_routing_id is None:
-        return None
-    routing = session.get(JB2OrderRouting, plan_op.jb2_routing_id)
-    return routing.work_center_code if routing else None
-
-
-def _work_center_int(session: Session, plan_op: PlanOperation) -> int | None:
-    """`TimeTicketDetailCreate.workCenter` is `int32` (findings §2 note --
-    unlike the string work-center codes used elsewhere, e.g.
-    `OrderRoutingUpdate.workCenter`). Best-effort resolution via the
-    `jb2_work_centers` mirror's own numeric `jb2_id`; nullable in the JB2
-    schema, so returning None on any miss is a safe degrade, not a block."""
-    code = _op_work_center_code(session, plan_op)
-    if not code:
-        return None
-    wc = session.execute(select(JB2WorkCenter).where(JB2WorkCenter.code == code)).scalars().first()
-    if wc is None:
-        return None
-    try:
-        return int(wc.jb2_id)
-    except (TypeError, ValueError):
-        return None
-
-
 def _elapsed_hours(session: Session, work_session: WorkSession) -> float:
     """Session time = closed_at - opened_at - sum(pauses) (contract §6)."""
     end = work_session.ended_at or datetime.now(timezone.utc)
@@ -130,34 +108,41 @@ def _ticket_date(work_session: WorkSession) -> str:
     return format_jb2_datetime(datetime(d.year, d.month, d.day, tzinfo=timezone.utc))
 
 
-def _time_fields(session: Session, work_session: WorkSession) -> dict:
-    """**THE isolated choice** (docs/jb2-api-findings.md §2 / risk R5):
-    whether JB2 wants `timeStart`/`timeEnd` or `setupTime`/`cycleTime` --
-    and whether the two pairs are alternates or complements -- is
-    BLOCKED-ON-WRITE-ACCESS (no dummy job / write approval as of this
-    task; P0-R1 is the remediation task that closes it out with live
-    evidence). This function is the ONLY place that decision is made --
-    when P0-R1 lands, change the branch here and nowhere else.
+def _hhmm(dt: datetime) -> str:
+    """`HH:MM` clock string (max length 5 -- findings §2 item 2; sending a
+    full ISO datetime fails `400 "value for field timeStart exceeds maximum
+    length of 5"`).
 
-    DEFAULT (this function, per this task's brief): `timeStart`/`timeEnd`
-    for first_pass/rework sessions; `setupTime` (elapsed hours) for
-    `kind='setup'` sessions -- matching DD §4.4's write-backs row ("or
-    setupTime/cycleTime") and the task brief's stated default. `cycleTime`
-    is left null throughout -- nothing in this codebase distinguishes
-    machine-cycle time from wall-clock session time yet.
+    TODO(site-tz): renders the naive-UTC wall clock -- this codebase has no
+    per-site timezone setting yet. Correct only while the shop floor and the
+    JB2 tenant's server-local day agree with UTC (findings §2 item 4:
+    `ticketDate` is normalized to the server's local midnight); add a real
+    site-tz conversion here if a shift ever straddles a UTC day boundary in
+    practice.
     """
-    elapsed_hours = _elapsed_hours(session, work_session)
+    return _naive_utc(dt).strftime("%H:%M")
+
+
+def _time_fields(session: Session, work_session: WorkSession) -> dict:
+    """**RESOLVED** (docs/jb2-api-findings.md §2 P0-R1, items 2-3 -- live
+    sandbox writes, no longer BLOCKED-ON-WRITE-ACCESS/pending): `timeStart`/
+    `timeEnd` and `setupTime` are COMPLEMENTS, not alternates -- JB2 DERIVES
+    `cycleTime` itself from `timeStart`/`timeEnd` (a 14:38->14:43 detail read
+    back `cycleTime: 0.083`). So: `kind='setup'` sessions send `setupTime`
+    (elapsed decimal hours) and omit timeStart/timeEnd entirely; every other
+    session kind sends `timeStart`/`timeEnd` as `HH:MM` clock strings and
+    never sends `cycleTime`/`setupTime` (JB2 computes it). This function
+    stays the one place the branch lives.
+    """
     if work_session.kind == "setup":
-        return {"setupTime": elapsed_hours, "cycleTime": None, "timeStart": None, "timeEnd": None}
-    return {
-        "timeStart": format_jb2_datetime(work_session.started_at),
-        "timeEnd": format_jb2_datetime(work_session.ended_at) if work_session.ended_at else None,
-        "setupTime": None,
-        "cycleTime": None,
-    }
+        return {"setupTime": _elapsed_hours(session, work_session)}
+    fields = {"timeStart": _hhmm(work_session.started_at)}
+    if work_session.ended_at is not None:
+        fields["timeEnd"] = _hhmm(work_session.ended_at)
+    return fields
 
 
-def build_time_ticket_detail(
+def build_time_ticket(
     session: Session,
     work_session: WorkSession,
     unit: Unit,
@@ -167,7 +152,19 @@ def build_time_ticket_detail(
     pieces_scrapped: int = 0,
     reason_number: int | None = None,
 ) -> dict | None:
-    """Builds the `TimeTicketDetailCreate` body for one closed `work_session`.
+    """Builds the single nested `TimeTicketCreate` body -- header fields
+    plus one `timeTicketDetails[]` entry -- for one closed `work_session`
+    (CR-018, docs/jb2-api-findings.md §2 P0-R1: header + detail MUST be
+    created together in one `POST /time-tickets`; a standalone detail POST
+    against a separately-created header 400s "Cannot find Time Ticket...").
+
+    Omits `operationNumber` (findings §2 item 5: distinct numeric op id,
+    != `stepNumber`, sending `stepNumber` as `operationNumber` 400s) and
+    `workCenter` (item 6: a numeric work-center id, not the string code used
+    elsewhere -- nullable on the JB2 side, so just leaving it out is a safe
+    default; TODO: build a work-center code->numeric-id map and resolve it
+    here once that mapping exists). Sets `allowClosedJobs: true` on the
+    header (item 7) so a late write after a job closes doesn't 400.
 
     Returns `None` (never raises) when the operator has no linked JB2
     employee with a usable numeric `employeeCode`, or the work order's line
@@ -207,31 +204,20 @@ def build_time_ticket_detail(
         )
         return None
 
-    payload = {
-        "employeeCode": employee_code,
+    detail = {
         "jobNumber": job_number,
-        "ticketDate": _ticket_date(work_session),
         "stepNumber": plan_op.seq,
-        "workCenter": _work_center_int(session, plan_op),
         "piecesFinished": pieces_finished,
         "piecesScrapped": pieces_scrapped,
         "reasonNumber": reason_number,
         **_time_fields(session, work_session),
     }
-    return payload
-
-
-def ensure_time_ticket_header(
-    session: Session, employee_code: int, ticket_date: str, work_order_id: uuid.UUID | None,
-) -> uuid.UUID:
-    """`POST /time-tickets` header, enqueued once per (employee, date).
-    `writer.enqueue`'s own idempotency-key dedup (a plain check-then-insert
-    on `jb2_outbox.idempotency_key`) already IS the "check for an existing
-    `tt:{emp}:{date}` row" the task brief asks for -- reusing it here is
-    simpler than a second existence check before calling the same function."""
-    key = writer.make_key("tt", employee_code, ticket_date)
-    payload = {"employeeCode": employee_code, "ticketDate": ticket_date}
-    return writer.enqueue(session, "time_ticket", payload, key, work_order_id)
+    return {
+        "employeeCode": employee_code,
+        "ticketDate": _ticket_date(work_session),
+        "allowClosedJobs": True,
+        "timeTicketDetails": [detail],
+    }
 
 
 def enqueue_finish_writeback(
@@ -244,37 +230,33 @@ def enqueue_finish_writeback(
     pieces_scrapped: int = 0,
     reason_number: int | None = None,
 ) -> uuid.UUID | None:
-    """The one public enqueue entry point for a closed `work_session`'s
-    time-ticket detail (+ its header, ensured first). Returns the
-    `jb2_outbox` row id, or `None` if `build_time_ticket_detail` skipped
-    the write (unmapped employee/job -- already logged + recorded as a
-    mapping exception, never raises). Idempotency key
+    """The one public enqueue entry point for a closed `work_session`:
+    ONE `jb2_outbox` row (`kind="time_ticket"`) carrying the full nested
+    `POST /time-tickets` body (header + its single `timeTicketDetails[]`
+    entry -- CR-018, no separate header row/POST anymore). Returns the
+    `jb2_outbox` row id, or `None` if `build_time_ticket` skipped the write
+    (unmapped employee/job -- already logged + recorded as a mapping
+    exception, never raises). Idempotency key
     `wo:{wo}:unit:{unit_no}:op:{seq}:session:{session_id}` matches
     docs/state-machine.md §5 exactly."""
-    detail_payload = build_time_ticket_detail(
+    payload = build_time_ticket(
         session, work_session, unit, plan_op,
         pieces_finished=pieces_finished, pieces_scrapped=pieces_scrapped,
         reason_number=reason_number,
     )
-    if detail_payload is None:
+    if payload is None:
         return None
-
-    ensure_time_ticket_header(
-        session, detail_payload["employeeCode"], detail_payload["ticketDate"], unit.work_order_id,
-    )
 
     key = writer.make_key(
         "wo", unit.work_order_id, "unit", unit.unit_no, "op", plan_op.seq,
         "session", work_session.id,
     )
-    outbox_id = writer.enqueue(
-        session, "time_ticket_detail", detail_payload, key, unit.work_order_id
-    )
+    outbox_id = writer.enqueue(session, "time_ticket", payload, key, unit.work_order_id)
     events.emit(
         session, "outbox.enqueued", entity=("jb2_outbox", outbox_id),
         actor_id=work_session.operator_id,
         after={
-            "kind": "time_ticket_detail", "work_session_id": str(work_session.id),
+            "kind": "time_ticket", "work_session_id": str(work_session.id),
             "pieces_finished": pieces_finished, "pieces_scrapped": pieces_scrapped,
         },
     )

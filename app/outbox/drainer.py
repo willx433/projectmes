@@ -40,18 +40,32 @@ BACKOFF_CAP_S = 900.0  # 15 min ceiling — ponytail: no jitter, single drainer 
 
 
 def _send_time_ticket(client: Jb2Client, row: JB2Outbox) -> None:
+    """CR-018 (docs/jb2-api-findings.md §2 P0-R1): header + detail are
+    created together in ONE nested `POST /time-tickets` -- `row.payload` is
+    already the full body (`{employeeCode, ticketDate, allowClosedJobs,
+    timeTicketDetails: [...]}`) built by `app.outbox.payloads.build_time_ticket`."""
     client.post("/time-tickets", row.payload)
 
 
-def _send_time_ticket_detail(client: Jb2Client, row: JB2Outbox) -> None:
-    client.post("/time-ticket-details", row.payload)
+def _send_time_ticket_detail_deprecated(client: Jb2Client, row: JB2Outbox) -> None:
+    """Dead sender kept only so a stray pre-CR-018 `time_ticket_detail` row
+    (enqueued before this rework shipped) parks with a clear message instead
+    of "no sender registered". Real JB2 rejects a standalone detail POST
+    against a separately-created header ("Cannot find Time Ticket...") -- see
+    CR-018 / docs/jb2-api-findings.md §2 item 1. No new code should ever
+    enqueue this kind; app.outbox.payloads only enqueues "time_ticket" now."""
+    raise Jb2PermanentError(
+        "outbox kind 'time_ticket_detail' is deprecated by CR-018 -- header+detail "
+        "now ride one nested POST /time-tickets write (kind='time_ticket'); see "
+        "docs/jb2-api-findings.md §2 and docs/CHANGE_REQUESTS.md CR-018"
+    )
 
 
 # kind -> sender(client, row). Left open for Phase 3 kinds (P3-10).
 SenderFn = Callable[[Jb2Client, JB2Outbox], None]
 DEFAULT_SENDERS: dict[str, SenderFn] = {
     "time_ticket": _send_time_ticket,
-    "time_ticket_detail": _send_time_ticket_detail,
+    "time_ticket_detail": _send_time_ticket_detail_deprecated,
 }
 
 

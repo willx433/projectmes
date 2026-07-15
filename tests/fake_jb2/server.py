@@ -301,6 +301,19 @@ def create_fake_jb2(state: dict[str, Any]) -> FastAPI:
         if unauth is not None:
             return unauth
         body = await request.json()
+        # findings §2 item 2: timeStart/timeEnd are HH:MM clock strings, max
+        # length 5 -- real JB2 400s "value for field timeStart exceeds
+        # maximum length of 5" on a full ISO datetime. Mimic that here so a
+        # regression back to ISO timestamps fails the test suite, not just
+        # live JB2.
+        for detail in body.get("timeTicketDetails") or []:
+            for field in ("timeStart", "timeEnd"):
+                value = detail.get(field)
+                if value is not None and len(str(value)) > 5:
+                    return _problem(
+                        400, "Bad Request",
+                        f"value for field {field} exceeds maximum length of 5",
+                    )
         state.setdefault("received_writes", []).append(
             {"method": "POST", "path": "/time-tickets", "body": body}
         )
@@ -317,12 +330,15 @@ def create_fake_jb2(state: dict[str, Any]) -> FastAPI:
         if unauth is not None:
             return unauth
         body = await request.json()
-        state.setdefault("received_writes", []).append(
-            {"method": "POST", "path": "/time-ticket-details", "body": body}
+        # findings §2 item 1 (CR-018): real JB2 rejects a standalone detail
+        # POST -- there is no header to attach it to, since header+detail
+        # are only ever created together via the nested POST /time-tickets.
+        # Mimic the real 400 instead of accepting.
+        return _problem(
+            400, "Bad Request",
+            f"Cannot find Time Ticket for employeeCode {body.get('employeeCode')} "
+            f"and date {body.get('ticketDate')}",
         )
-        created = {**body, "uniqueID": _next_unique_id(state)}
-        state.setdefault("time-ticket-details", []).append(created)
-        return JSONResponse(status_code=201, content=created)
 
     @app.patch("/api/v1/order-routings/{step_number}")
     async def patch_order_routing(step_number: str, request: Request):

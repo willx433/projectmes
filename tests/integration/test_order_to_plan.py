@@ -614,7 +614,7 @@ def test_outbox_work_order_fk_column_present():
 
         row = JB2Outbox(
             id=uuid.uuid4(),
-            kind="time_ticket_detail",
+            kind="time_ticket",
             payload={},
             idempotency_key=f"wo:{wo.id}:op:10:finish",
             work_order_id=wo.id,

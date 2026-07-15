@@ -763,7 +763,7 @@ def test_f_auto_closed_session_outbox_withheld_until_lead_confirm(db_session):
     db_session.commit()
 
     detail_rows = db_session.execute(
-        select(JB2Outbox).where(JB2Outbox.kind == "time_ticket_detail")
+        select(JB2Outbox).where(JB2Outbox.kind == "time_ticket")
     ).scalars().all()
     assert len(detail_rows) == 1  # (f): exactly one after O6
 
@@ -771,7 +771,7 @@ def test_f_auto_closed_session_outbox_withheld_until_lead_confirm(db_session):
     sessions_domain.lead_confirm_session(db_session, ws, lead)
     db_session.commit()
     detail_rows = db_session.execute(
-        select(JB2Outbox).where(JB2Outbox.kind == "time_ticket_detail")
+        select(JB2Outbox).where(JB2Outbox.kind == "time_ticket")
     ).scalars().all()
     assert len(detail_rows) == 1
 

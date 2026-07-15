@@ -257,10 +257,10 @@ def _apply_rework_to_op(
         statemachine.close_session(
             session, ws, reason="clocked_out", actor_id=authorized_by.id, now=now,
         )
-        # ponytail: no time-ticket-detail enqueued for the pre-failure labor
-        # here -- this task's brief scopes outbox writes to the scrap path
-        # only (see build_time_ticket_detail's 3 call sites: finish, scrap,
-        # O6 lead-confirm). The clocked-out time before the reopened op is
+        # ponytail: no time-ticket enqueued for the pre-failure labor here --
+        # this task's brief scopes outbox writes to the scrap path only (see
+        # enqueue_finish_writeback's 3 call sites: finish, scrap, O6
+        # lead-confirm). The clocked-out time before the reopened op is
         # redone isn't posted at reopen time in v1; upgrade path is to call
         # payloads.enqueue_finish_writeback(session, ws, unit, plan_op,
         # pieces_finished=0) here too once that's confirmed in-scope.

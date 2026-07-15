@@ -7,8 +7,9 @@ stations (CNC -> Fit -> QC) over the REAL HTTP stack (FastAPI TestClient
 against the actual routers in app.main, real cookie/token auth, real
 statemachine/substeps/finish domain code) against REAL PostgreSQL, then
 drains the resulting jb2_outbox rows into an in-process fake-JB2 server and
-asserts the CR-010 write-set (time-tickets + time-ticket-details only, ZERO
-/order-routings PATCH).
+asserts the CR-010/CR-018 write-set (nested /time-tickets writes only, ZERO
+/order-routings PATCH and ZERO standalone /time-ticket-details POSTs -- see
+docs/jb2-api-findings.md §2 / docs/CHANGE_REQUESTS.md CR-018).
 
 Reuses the exact seeding/harness patterns already proven in:
   - tests/integration/test_finish_and_writeback.py (TestClient app build,
@@ -245,11 +246,13 @@ def seed(session: Session, tag: str) -> dict:
                 work_center_code=station_cfg["wc"], payload={}, **_mirror_common(now),
             )
         )
-        # Mirror the work center too -- app/outbox/payloads.py's
-        # _work_center_int resolves TimeTicketDetailCreate.workCenter (int32)
-        # via this table's `jb2_id` cast to int; without it the write-back
-        # safely degrades to workCenter=None (not a bug), but seeding it
-        # gives fuller gate evidence of the real write-back shape.
+        # Mirror the work center too, for gate evidence completeness -- NOTE
+        # (CR-018, docs/jb2-api-findings.md §2 item 6): app/outbox/payloads.py
+        # no longer resolves/sends `workCenter` at all (it's a numeric JB2 id,
+        # not the string code, and there's no code->id map built yet -- left
+        # out of the write-back entirely rather than guessed at). This mirror
+        # row isn't consumed by the write-back today; kept seeded so a future
+        # code->id map has real data to resolve against.
         # jb2_id must be numeric-string (int(jb2_id)) -- unlike every other
         # mirror row's jb2_id, which is opaque text.
         session.add(
@@ -475,7 +478,11 @@ def drain_and_check(session_factory) -> dict:
 
     writes = state["received_writes"]
     paths = {w["path"] for w in writes}
-    cr010_ok = paths <= {"/time-tickets", "/time-ticket-details"} and not any(
+    # CR-018: the only write path is a single nested POST /time-tickets per
+    # session -- a standalone /time-ticket-details write would mean a
+    # regression back to the broken two-call model (docs/jb2-api-findings.md
+    # §2 item 1), so it's excluded here, not just order-routings (CR-010).
+    cr010_ok = paths <= {"/time-tickets"} and not any(
         w["path"].startswith("/order-routings") for w in writes
     )
     return {"outcomes": outcomes, "writes": writes, "paths": sorted(paths), "cr010_ok": cr010_ok}
@@ -629,7 +636,7 @@ def render_report(*, tag: str, db_notices: list[str], schema_note: str, using_po
         for w in drain["writes"]:
             a(f"    {w['path']}  body={w['body']}")
         verdict = "PASS" if drain["cr010_ok"] else "FAIL"
-        a(f"- **CR-010 check (zero /order-routings PATCH, only time-tickets/time-ticket-details): {verdict}**")
+        a(f"- **CR-010/CR-018 check (zero /order-routings PATCH, only nested /time-tickets writes): {verdict}**")
         a("")
 
     if evidence:
