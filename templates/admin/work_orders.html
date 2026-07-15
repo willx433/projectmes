@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Admin · Work Orders — Atlas MES{% endblock %}
+{% block header_title %}Work Orders{% endblock %}
+
+{% block main %}
+
+<section class="card">
+  <h2>Work orders</h2>
+  <p class="muted">
+    Status flags to watch: <span class="badge badge-inactive">blocked_no_instructions</span>
+    <span class="badge badge-inactive">routing_drift</span>
+    <span class="badge badge-inactive">cancel_requested</span>
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Product</th><th>Variant</th><th>Qty</th><th>Due</th><th>Status</th><th>Plan v</th><th>PDFs</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.product.name if row.product else "—" }}</td>
+          <td>{{ row.wo.variant_values or "—" }}</td>
+          <td>{{ row.wo.qty }}</td>
+          <td>{{ row.wo.due_date or "—" }}</td>
+          <td><span class="badge {{ 'badge-active' if row.wo.status == 'ready' else 'badge-inactive' }}">{{ row.wo.status }}</span></td>
+          <td>{{ row.wo.plan_version }}</td>
+          <td>
+            {% for pdf in row.pdfs %}
+            <a href="/artifacts/work-orders/{{ row.wo.id }}/guide-v{{ pdf.version }}.pdf">v{{ pdf.version }}</a>{% if not loop.last %}, {% endif %}
+            {% else %}
+            none yet
+            {% endfor %}
+          </td>
+          <td>
+            <form method="post" action="/admin/work-orders/{{ row.wo.id }}/generate-pdf">
+              <button type="submit" class="btn">Generate PDF</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8">No work orders yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Print sheets</h2>
+  <p><a href="/admin/print/badges">Print operator badge sheet</a></p>
+  <form method="get" action="/admin/print/boxes">
+    <div class="field field-inline">
+      <label for="count">Count</label>
+      <input type="number" id="count" name="count" value="10" min="1" max="200">
+      <label for="prefix">Prefix</label>
+      <input type="text" id="prefix" name="prefix" value="B">
+    </div>
+    <button type="submit" class="btn">Print box label sheet</button>
+  </form>
+</section>
+
+{% endblock %}

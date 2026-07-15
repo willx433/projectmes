@@ -1,0 +1,30 @@
+{# Operator badge print sheet (P2-12, DD §14) — grid of cards: name + QR OP:{uuid}. #}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Badge sheet</title>
+<style>
+  @page { size: Letter; margin: 0.5in; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  .grid { display: flex; flex-wrap: wrap; gap: 0.3in; }
+  .card { width: 2.3in; height: 1.4in; border: 1px solid #999; border-radius: 6px; padding: 0.15in; display: flex; align-items: center; gap: 0.15in; box-sizing: border-box; }
+  .card img { width: 1in; height: 1in; }
+  .card .name { font-weight: 600; font-size: 0.95rem; }
+  .card .payload { font-size: 0.65rem; color: #777; word-break: break-all; }
+</style>
+</head>
+<body>
+<div class="grid">
+  {% for card in cards %}
+  <div class="card">
+    <img src="{{ card.qr }}" alt="badge QR">
+    <div>
+      <div class="name">{{ card.name }}</div>
+      <div class="payload">{{ card.payload }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+</body>
+</html>

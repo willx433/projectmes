@@ -218,6 +218,18 @@ def create_from_line_item(
             "any_blocked": any_blocked,
         },
     )
+
+    # FLAGGED touch (P2-11, DD §8): auto-generate the v1 build guide PDF for
+    # non-blocked work orders at creation time. A blocked_no_instructions WO
+    # gets no auto-PDF -- the manual /admin/work-orders/{id}/generate-pdf
+    # endpoint (app/api/workorders.py) covers that case with the placeholder
+    # page instead. Local import to keep app.domain free of a module-level
+    # dependency on app.pdf.
+    if not any_blocked:
+        from app.pdf.guide import generate_build_guide
+
+        generate_build_guide(session, work_order, generated_by="system")
+
     return work_order
 
 

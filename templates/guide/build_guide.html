@@ -1,0 +1,119 @@
+{#
+  Build Guide PDF (P2-11, DD §8) — cover page, one section per plan
+  operation (reusing templates/partials/instruction_steps.html for the
+  step/substep content, same as the station UI/library preview), footer
+  with plan version + content hash + generation timestamp on every page via
+  CSS running elements.
+#}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Build Guide — {{ work_order.id }}</title>
+<style>
+  @page {
+    size: Letter;
+    margin: 0.9in 0.75in 0.85in 0.75in;
+    @bottom-center {
+      content: element(footer);
+    }
+  }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 10.5pt; }
+  .footer { position: running(footer); font-size: 7.5pt; color: #666; border-top: 1px solid #ccc; padding-top: 0.15rem; width: 100%; }
+  .cover { page-break-after: always; }
+  .cover h1 { font-size: 1.6rem; margin: 0 0 0.25rem; }
+  .cover-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1.5rem; margin: 1rem 0; }
+  .cover-grid dt { color: #666; font-size: 0.8rem; text-transform: uppercase; }
+  .cover-grid dd { margin: 0 0 0.4rem; font-size: 1rem; }
+  .qr-box { border: 1px dashed #999; border-radius: 8px; padding: 0.75rem; display: inline-block; text-align: center; }
+  .qr-box img { width: 140px; height: 140px; }
+  .serials { margin-top: 1.5rem; }
+  .serials table { border-collapse: collapse; width: 100%; }
+  .serials td, .serials th { border: 1px solid #ccc; padding: 0.3rem 0.5rem; text-align: left; }
+  .serials td.blank { height: 1.4rem; }
+  .op-page { page-break-after: always; }
+  .op-page:last-child { page-break-after: auto; }
+  .op-header { border-bottom: 2px solid #333; padding-bottom: 0.3rem; margin-bottom: 0.75rem; }
+  .op-header h2 { margin: 0; font-size: 1.2rem; }
+  .op-meta { color: #666; font-size: 0.85rem; }
+  .blocked-placeholder { border: 2px dashed #a00; border-radius: 8px; padding: 2rem; text-align: center; color: #a00; font-size: 1.1rem; margin-top: 3rem; }
+  .meas-log { margin-top: 1rem; border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+  .meas-log caption { text-align: left; font-weight: 600; margin-bottom: 0.3rem; }
+  .meas-log th, .meas-log td { border: 1px solid #999; padding: 0.25rem 0.5rem; }
+  .meas-log td.blank { min-width: 4rem; height: 1.3rem; }
+</style>
+</head>
+<body>
+
+<div class="footer">
+  Work Order {{ work_order.id }} &middot; Plan v{{ work_order.plan_version }} &middot; content hash {{ plan_hash[:16] }} &middot; generated {{ generated_at }}
+</div>
+
+<section class="cover">
+  <h1>Build Guide</h1>
+  <p class="op-meta">Work Order {{ work_order.id }}</p>
+
+  <dl class="cover-grid">
+    <div><dt>Order #</dt><dd>{{ order_number or "—" }}</dd></div>
+    <div><dt>Line #</dt><dd>{{ line_number or "—" }}</dd></div>
+    <div><dt>Product</dt><dd>{{ product.name if product else "—" }}</dd></div>
+    <div><dt>Variant</dt><dd>{{ work_order.variant_values or "—" }}</dd></div>
+    <div><dt>Quantity</dt><dd>{{ work_order.qty }}</dd></div>
+    <div><dt>Due date</dt><dd>{{ work_order.due_date or "—" }}</dd></div>
+  </dl>
+
+  <div class="qr-box">
+    <img src="{{ box_qr }}" alt="box QR placeholder">
+    <div>Box QR (bind at kit-up)</div>
+  </div>
+
+  <div class="serials">
+    <h3>Serial numbers ({{ units|length }} unit{{ "s" if units|length != 1 else "" }})</h3>
+    <table>
+      <thead><tr><th>Unit #</th><th>Serial number</th></tr></thead>
+      <tbody>
+        {% for unit in units %}
+        <tr><td>{{ unit.unit_no }}</td><td class="blank"></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% for entry in ops %}
+<section class="op-page">
+  <div class="op-header">
+    <h2>Op {{ entry.op.seq }}{% if entry.op.operation_code %} &middot; {{ entry.op.operation_code }}{% endif %} &mdash; {{ entry.op.title }}</h2>
+    <div class="op-meta">{% if entry.op.est_minutes %}Est. {{ entry.op.est_minutes }} min{% else %}Est. time not set{% endif %}</div>
+  </div>
+
+  {% if entry.op.blocked %}
+  <div class="blocked-placeholder">No instructions — see lead.</div>
+  {% else %}
+  {% with iset = entry.iset, tree = entry.tree %}
+  {% include "partials/instruction_steps.html" %}
+  {% endwith %}
+
+  {% if entry.measurements %}
+  <table class="meas-log">
+    <caption>Paper backup measurement log</caption>
+    <thead><tr><th>Name</th><th>Nominal</th><th>Tolerance</th><th>Actual</th><th>Initials</th></tr></thead>
+    <tbody>
+      {% for m in entry.measurements %}
+      <tr>
+        <td>{{ m.title }}</td>
+        <td>{{ m.measurement_spec.nominal }} {{ m.measurement_spec.unit }}</td>
+        <td>+{{ m.measurement_spec.tol_plus }} / -{{ m.measurement_spec.tol_minus }}</td>
+        <td class="blank"></td>
+        <td class="blank"></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% endif %}
+</section>
+{% endfor %}
+
+</body>
+</html>

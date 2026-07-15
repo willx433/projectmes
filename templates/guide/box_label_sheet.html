@@ -1,0 +1,28 @@
+{# Box label print sheet (P2-12, DD §6.1) — grid of cards: QR BOX:{label} + human text. #}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Box label sheet</title>
+<style>
+  @page { size: Letter; margin: 0.5in; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  .grid { display: flex; flex-wrap: wrap; gap: 0.3in; }
+  .card { width: 2in; height: 2.3in; border: 1px solid #999; border-radius: 6px; padding: 0.15in; text-align: center; box-sizing: border-box; }
+  .card img { width: 1.5in; height: 1.5in; }
+  .card .label { font-weight: 700; font-size: 1.1rem; margin-top: 0.1in; }
+  .card .payload { font-size: 0.6rem; color: #999; }
+</style>
+</head>
+<body>
+<div class="grid">
+  {% for card in cards %}
+  <div class="card">
+    <img src="{{ card.qr }}" alt="box QR">
+    <div class="label">{{ card.label }}</div>
+    <div class="payload">{{ card.payload }}</div>
+  </div>
+  {% endfor %}
+</div>
+</body>
+</html>
