@@ -39,8 +39,13 @@ def to_utc(value: datetime) -> datetime:
     """Normalize to a UTC-aware datetime. SQLite round-trips datetime
     columns as naive (no real tz storage); Postgres returns them aware
     already. Every jb2/checkpoint datetime is UTC by contract (findings §4),
-    so a naive value here is always meant as UTC."""
-    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    so a naive value here is always meant as UTC. An aware value in any zone
+    (Postgres returns timestamptz in the session tz) is CONVERTED to UTC, not
+    just relabeled -- otherwise strftime('...Z') stamps Z on non-UTC wall-clock
+    (G3-D1: emitted a 4h-off timeStart, phantom labor in JB2 costing)."""
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc)
+    return value.replace(tzinfo=timezone.utc)
 
 
 def content_hash(record: dict[str, Any]) -> str:

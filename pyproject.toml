@@ -5,5 +5,9 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I"]
 
+[tool.ruff.lint.per-file-ignores]
+# Diagnostic gate-evidence harness: long report/f-string lines are fine.
+"tools/gate3_walk.py" = ["E501"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -8,3 +8,6 @@ __pycache__/
 .env
 *.Zone.Identifier
 *:Zone.Identifier
+
+# runtime artifacts (PDFs, media)
+artifacts/
