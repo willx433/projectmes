@@ -18,6 +18,7 @@ from app.api.health import router as health_router
 from app.api.library import router as library_router
 from app.api.media import router as media_router
 from app.api.products import router as products_router
+from app.api.scan import router as scan_router
 from app.api.workorders import router as workorders_router
 from app.config import REPO_ROOT
 from app.logging import configure_logging
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(media_router)
     app.include_router(workorders_router)
     app.include_router(auth_router)
+    app.include_router(scan_router)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
