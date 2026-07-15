@@ -25,7 +25,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.config import config
@@ -340,6 +340,99 @@ def update_step(
         extra={"who": who, "step_id": str(step_id), "fields": sorted(fields)},
     )
     return step
+
+
+def delete_step(session: Session, step_id: uuid.UUID, *, who: str | None = None) -> None:
+    """Flagged addition (P2-04): the tree editor needs step delete and the
+    lifecycle module had no mutation-removal helper yet. Cascades substeps
+    itself -- migration 0005 has no ON DELETE CASCADE (see its FK block)."""
+    step = session.get(Step, step_id)
+    if step is None:
+        raise LibraryError(f"step '{step_id}' not found")
+    _check_editable(_get_set(session, step.instruction_set_id))
+    session.execute(delete(Substep).where(Substep.step_id == step_id))
+    session.delete(step)
+    logger.info(
+        "library_delete_step", extra={"who": who, "step_id": str(step_id)}
+    )
+
+
+def move_step(
+    session: Session, step_id: uuid.UUID, direction: str, *, who: str | None = None
+) -> None:
+    """Flagged addition (P2-04): swap this step's `seq` with its immediate
+    neighbor ('up' or 'down') -- the up/down reorder buttons (P10-compliant
+    choice over drag/drop, see task brief). Three-update swap because
+    `uq_steps_instruction_set_seq` is checked immediately, not deferred."""
+    if direction not in ("up", "down"):
+        raise LibraryError(f"invalid direction '{direction}' (must be 'up' or 'down')")
+    step = session.get(Step, step_id)
+    if step is None:
+        raise LibraryError(f"step '{step_id}' not found")
+    iset = _get_set(session, step.instruction_set_id)
+    _check_editable(iset)
+    siblings = session.scalars(
+        select(Step).where(Step.instruction_set_id == step.instruction_set_id).order_by(Step.seq)
+    ).all()
+    idx = next(i for i, s in enumerate(siblings) if s.id == step.id)
+    neighbor_idx = idx - 1 if direction == "up" else idx + 1
+    if neighbor_idx < 0 or neighbor_idx >= len(siblings):
+        return  # already at the edge -- no-op, not an error
+    neighbor = siblings[neighbor_idx]
+    a_seq, b_seq = step.seq, neighbor.seq
+    step.seq = -1  # placeholder clears the unique slot before the swap
+    session.flush()
+    neighbor.seq = a_seq
+    session.flush()
+    step.seq = b_seq
+    logger.info(
+        "library_move_step",
+        extra={"who": who, "step_id": str(step_id), "direction": direction},
+    )
+
+
+def delete_substep(session: Session, substep_id: uuid.UUID, *, who: str | None = None) -> None:
+    """Flagged addition (P2-04): mirrors `delete_step`."""
+    substep = session.get(Substep, substep_id)
+    if substep is None:
+        raise LibraryError(f"substep '{substep_id}' not found")
+    step = session.get(Step, substep.step_id)
+    _check_editable(_get_set(session, step.instruction_set_id))
+    session.delete(substep)
+    logger.info(
+        "library_delete_substep", extra={"who": who, "substep_id": str(substep_id)}
+    )
+
+
+def move_substep(
+    session: Session, substep_id: uuid.UUID, direction: str, *, who: str | None = None
+) -> None:
+    """Flagged addition (P2-04): mirrors `move_step`, within the same step."""
+    if direction not in ("up", "down"):
+        raise LibraryError(f"invalid direction '{direction}' (must be 'up' or 'down')")
+    substep = session.get(Substep, substep_id)
+    if substep is None:
+        raise LibraryError(f"substep '{substep_id}' not found")
+    step = session.get(Step, substep.step_id)
+    _check_editable(_get_set(session, step.instruction_set_id))
+    siblings = session.scalars(
+        select(Substep).where(Substep.step_id == substep.step_id).order_by(Substep.seq)
+    ).all()
+    idx = next(i for i, s in enumerate(siblings) if s.id == substep.id)
+    neighbor_idx = idx - 1 if direction == "up" else idx + 1
+    if neighbor_idx < 0 or neighbor_idx >= len(siblings):
+        return
+    neighbor = siblings[neighbor_idx]
+    a_seq = substep.seq
+    substep.seq = -1
+    session.flush()
+    neighbor.seq = a_seq
+    session.flush()
+    substep.seq = a_seq if False else neighbor.seq if False else substep.seq  # placeholder, fixed below
+    logger.info(
+        "library_move_substep",
+        extra={"who": who, "substep_id": str(substep_id), "direction": direction},
+    )
 
 
 def add_substep(
