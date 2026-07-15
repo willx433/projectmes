@@ -14,6 +14,23 @@ SESSION_AUTO_CLOSE_MIN (P3-09, §17.8 "auto-close after ~60 min paused";
 default 60), REQUIRE_SERIAL_BEFORE_DONE (P3-10, DD §6.8 "serial must be
 present before `done`"; default true, global for v1 -- per-product
 override deferred, see P3-10 task report).
+
+DASHBOARD_TV_TOKEN (P4-01/02, DD §13.1 "renders read-only on TVs" -- optional
+shared secret a wall-mounted browser puts in `?tv=`/cookie to get the
+nav-less kiosk view; unset means anyone can request tv mode, fine for an
+internal LAN-only board with no mutations on the page at all).
+DASHBOARD_QUEUE_DWELL_HRS / DASHBOARD_STALLED_HRS (P4-02, DD §13.1 "amber =
+queue dwell over threshold" -- two thresholds for the same amber `stalled`
+card state: the stricter one (default 2h) applies when nobody has an open
+WorkSession on the unit (it's just sitting); the looser one (default 4h)
+applies when an operator IS badged in but hasn't finished in a long time.
+
+ALERT_EMAIL_TO / ALERT_SMTP_HOST / ALERT_SMTP_PORT / ALERT_SMTP_USER /
+ALERT_SMTP_PASS / ALERT_COOLDOWN_MIN (P4-05, DD N5: "alert (email) on:
+outbox failures, sync stalls > 10 min, station offline > 15 min" --
+app/ops/alerts.py). All optional; ALERT_EMAIL_TO/ALERT_SMTP_HOST unset means
+log-only, the dev default -- see that module's docstring. ALERT_COOLDOWN_MIN
+default 30 (minutes between re-sends of the same alert signature).
 """
 from __future__ import annotations
 
@@ -53,6 +70,15 @@ class Config:
     kitup_requires_lead: bool
     session_auto_close_min: int
     require_serial_before_done: bool
+    dashboard_tv_token: str | None
+    dashboard_queue_dwell_hrs: float
+    dashboard_stalled_hrs: float
+    alert_email_to: str | None
+    alert_smtp_host: str | None
+    alert_smtp_port: int
+    alert_smtp_user: str | None
+    alert_smtp_pass: str | None
+    alert_cooldown_min: int
 
     def validate(self, required: list[str]) -> None:
         """Raise if any of the given attribute names are unset. Endpoints/workers
@@ -97,6 +123,14 @@ def load_config(env_path: Path | None = None) -> Config:
         "true",
         "yes",
     )
+    raw_queue_dwell_hrs = get("DASHBOARD_QUEUE_DWELL_HRS")
+    dashboard_queue_dwell_hrs = float(raw_queue_dwell_hrs) if raw_queue_dwell_hrs else 2.0
+    raw_stalled_hrs = get("DASHBOARD_STALLED_HRS")
+    dashboard_stalled_hrs = float(raw_stalled_hrs) if raw_stalled_hrs else 4.0
+    raw_alert_smtp_port = get("ALERT_SMTP_PORT")
+    alert_smtp_port = int(raw_alert_smtp_port) if raw_alert_smtp_port else 587
+    raw_alert_cooldown_min = get("ALERT_COOLDOWN_MIN")
+    alert_cooldown_min = int(raw_alert_cooldown_min) if raw_alert_cooldown_min else 30
 
     return Config(
         jobboss2_api_base_url=get("JobBoss2__ApiBaseUrl"),
@@ -114,6 +148,15 @@ def load_config(env_path: Path | None = None) -> Config:
         kitup_requires_lead=kitup_requires_lead,
         session_auto_close_min=session_auto_close_min,
         require_serial_before_done=require_serial_before_done,
+        dashboard_tv_token=get("DASHBOARD_TV_TOKEN"),
+        dashboard_queue_dwell_hrs=dashboard_queue_dwell_hrs,
+        dashboard_stalled_hrs=dashboard_stalled_hrs,
+        alert_email_to=get("ALERT_EMAIL_TO"),
+        alert_smtp_host=get("ALERT_SMTP_HOST"),
+        alert_smtp_port=alert_smtp_port,
+        alert_smtp_user=get("ALERT_SMTP_USER"),
+        alert_smtp_pass=get("ALERT_SMTP_PASS"),
+        alert_cooldown_min=alert_cooldown_min,
     )
 
 

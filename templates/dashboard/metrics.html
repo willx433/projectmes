@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Metrics — Atlas MES{% endblock %}
+{% block header_title %}Metrics{% endblock %}
+
+{% block main %}
+
+<form class="window-form" method="get" action="/dashboard/metrics">
+  <label for="days">Window (days)</label>
+  <input type="number" id="days" name="days" min="1" value="{{ days }}">
+  <button type="submit" class="btn btn-sm">Apply</button>
+</form>
+
+<div class="metric-grid">
+
+  <section class="card">
+    <h2>First-pass yield — by product</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Product</th><th>Done</th><th>First-pass</th><th>FPY</th></tr></thead>
+        <tbody>
+          {% for r in fpy_by_product %}
+          <tr>
+            <td>{{ r.product_name }}</td>
+            <td>{{ r.units_done }}</td>
+            <td>{{ r.units_first_pass }}</td>
+            <td>
+              {% if r.fpy_pct is not none %}
+              <div class="metric-bar-track">
+                <div class="metric-bar-fill {{ 'metric-bar-bad' if r.fpy_pct < 80 else '' }}" style="width: {{ r.fpy_pct }}%"></div>
+              </div>
+              {{ "%.1f"|format(r.fpy_pct) }}%
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4">No completed units in this window.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>First-pass yield — by operation</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Op</th><th>Reached</th><th>Clean</th><th>FPY</th></tr></thead>
+        <tbody>
+          {% for r in fpy_by_operation %}
+          <tr>
+            <td>{{ r.operation_code or "—" }} {{ r.title }}</td>
+            <td>{{ r.units_reached }}</td>
+            <td>{{ r.units_clean }}</td>
+            <td>
+              {% if r.fpy_pct is not none %}
+              <div class="metric-bar-track">
+                <div class="metric-bar-fill {{ 'metric-bar-bad' if r.fpy_pct < 80 else '' }}" style="width: {{ r.fpy_pct }}%"></div>
+              </div>
+              {{ "%.1f"|format(r.fpy_pct) }}%
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4">No operations executed yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Scrap Pareto — by cause</h2>
+    {% set max_scrap = (scrap_pareto|map(attribute="scrap_count")|list or [1])|max %}
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Cause</th><th>Count</th><th>Est. value lost</th><th></th></tr></thead>
+        <tbody>
+          {% for r in scrap_pareto %}
+          <tr>
+            <td>{{ r.cause_label }}</td>
+            <td>{{ r.scrap_count }}</td>
+            <td>${{ "%.2f"|format(r.material_value_total or 0) }}</td>
+            <td style="width: 40%">
+              <div class="metric-bar-track">
+                <div class="metric-bar-fill metric-bar-bad" style="width: {{ (r.scrap_count / max_scrap * 100) if max_scrap else 0 }}%"></div>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4">No scrap in this window.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Throughput — units/day by product</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Day</th><th>Product</th><th>Units done</th></tr></thead>
+        <tbody>
+          {% for r in throughput_daily %}
+          <tr><td>{{ r.done_day }}</td><td>{{ r.product_name }}</td><td>{{ r.units_done }}</td></tr>
+          {% else %}
+          <tr><td colspan="3">No units completed in this window.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Actual vs. estimated minutes — by operation</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Op</th><th>Est. min</th><th>Actual min</th><th>Delta</th></tr></thead>
+        <tbody>
+          {% for r in actual_vs_estimate %}
+          <tr class="{{ 'row-bad' if r.delta_minutes and r.delta_minutes > 0 else '' }}">
+            <td>{{ r.operation_code or "—" }} {{ r.title }}</td>
+            <td>{{ "%.1f"|format(r.est_minutes_total) if r.est_minutes_total is not none else "—" }}</td>
+            <td>{{ "%.1f"|format(r.actual_minutes_total) if r.actual_minutes_total is not none else "—" }}</td>
+            <td>{{ "%+.1f"|format(r.delta_minutes) if r.delta_minutes is not none else "—" }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4">No closed sessions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Queue time — by station</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Station</th><th>Avg. queue (min)</th><th>Sessions</th></tr></thead>
+        <tbody>
+          {% for r in queue_time_by_station %}
+          <tr>
+            <td>{{ r.station_name }}</td>
+            <td>{{ "%.1f"|format(r.avg_queue_seconds / 60) if r.avg_queue_seconds is not none else "—" }}</td>
+            <td>{{ r.sessions }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3">No sessions with a measurable queue in this window.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Rework hours — % of total</h2>
+    {% if rework_hours_pct.rework_pct is not none %}
+    <div class="metric-bar-track">
+      <div class="metric-bar-fill metric-bar-bad" style="width: {{ rework_hours_pct.rework_pct }}%"></div>
+    </div>
+    <p class="counts">
+      {{ "%.1f"|format(rework_hours_pct.rework_pct) }}% —
+      {{ "%.1f"|format(rework_hours_pct.rework_minutes) }} rework min of
+      {{ "%.1f"|format(rework_hours_pct.total_minutes) }} total min
+    </p>
+    {% else %}
+    <p class="muted">No closed sessions yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>WIP age histogram</h2>
+    {% set max_wip = (wip_age_histogram|map(attribute="count")|list or [1])|max %}
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Age</th><th>Units</th><th></th></tr></thead>
+        <tbody>
+          {% for b in wip_age_histogram %}
+          <tr>
+            <td>{{ b.bucket }}</td>
+            <td>{{ b.count }}</td>
+            <td style="width: 40%">
+              <div class="metric-bar-track">
+                <div class="metric-bar-fill" style="width: {{ (b.count / max_wip * 100) if max_wip else 0 }}%"></div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>JB2 schedule overlay <span class="muted">(eci-aps/get-schedule)</span></h2>
+    {% if jb2_schedule %}
+    <p class="muted">Fetched {{ jb2_schedule.fetched_at }}</p>
+    <p>{{ jb2_schedule.payload|length }} field(s) cached — see <a href="/api/v1/jb2-schedule">/api/v1/jb2-schedule</a> for the raw feed.</p>
+    {% else %}
+    <p class="muted">Not cached yet (sync worker hasn't pulled eci-aps/get-schedule).</p>
+    {% endif %}
+  </section>
+
+</div>
+
+{% endblock %}

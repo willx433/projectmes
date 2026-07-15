@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import Depends, Header, HTTPException, Request, Response
 from sqlalchemy import select
@@ -54,6 +55,13 @@ def require_station(
     station = service.resolve_station_by_token(session, token)
     if station is None:
         raise HTTPException(status_code=401, detail="invalid or inactive station token")
+    # P4-05 station heartbeat (DD §9.8/N5): every authenticated kiosk request
+    # already runs this dependency, so recording it here is the heartbeat --
+    # no separate JS ping/endpoint needed. Flushed, not committed: rides
+    # along with whatever the route itself commits (a failed request losing
+    # one heartbeat tick is harmless, the next request within 15 min renews it).
+    station.last_seen_at = datetime.now(timezone.utc)
+    session.flush()
     return station
 
 

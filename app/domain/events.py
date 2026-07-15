@@ -53,6 +53,13 @@ VALID_VERBS = frozenset(
         # (it's an admin action against `operators`, no auth_events kind
         # fits per the DD §14 enum) -- logged to the generic timeline instead.
         "auth.badge_revoked",
+        # P4-06 addition (DD §17.2): app/api/backfill.py emits one of these
+        # right after each live substep/measurement/finish call it makes on
+        # an entity, so a backfilled row is distinguishable in that entity's
+        # event history without a schema change (no `backfilled` column
+        # exists on substep_executions/work_sessions -- see that module's
+        # docstring for the full decision).
+        "backfill.recorded",
     }
 )
 

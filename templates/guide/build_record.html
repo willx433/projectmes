@@ -1,0 +1,277 @@
+{#
+  Per-serial Build Record PDF (P4-08, DD §18.7/§9) — cover with identity +
+  first-pass/rework status, one section per operation showing actual
+  recorded values (not a blank form — that's the Build Guide), failures per
+  op, then session/scan/transit/box history. Standalone inline CSS only,
+  same convention as guide/build_guide.html — never depends on
+  static/app.css.
+#}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Build Record — {{ unit.serial_number or unit.id }}</title>
+<style>
+  @page {
+    size: Letter;
+    margin: 0.9in 0.75in 0.85in 0.75in;
+    @bottom-center { content: element(footer); }
+  }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 10.5pt; }
+  .footer { position: running(footer); font-size: 7.5pt; color: #666; border-top: 1px solid #ccc; padding-top: 0.15rem; width: 100%; }
+  .cover { page-break-after: always; }
+  .cover h1 { font-size: 1.6rem; margin: 0 0 0.25rem; }
+  .cover-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1.5rem; margin: 1rem 0; }
+  .cover-grid dt { color: #666; font-size: 0.8rem; text-transform: uppercase; }
+  .cover-grid dd { margin: 0 0 0.4rem; font-size: 1rem; }
+  .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.8rem; }
+  .badge-good { background: #e3f3e6; color: #1a6a2c; }
+  .badge-warn { background: #fbe9d6; color: #9a5300; }
+  .op-page { page-break-after: always; }
+  .op-page:last-child { page-break-after: auto; }
+  .op-header { border-bottom: 2px solid #333; padding-bottom: 0.3rem; margin-bottom: 0.75rem; }
+  .op-header h2 { margin: 0; font-size: 1.2rem; }
+  .op-meta { color: #666; font-size: 0.85rem; }
+  .step { border: 1px solid #ddd; border-radius: 8px; padding: 0.75rem; margin-bottom: 0.75rem; }
+  .step h3 { margin: 0 0 0.4rem; font-size: 1rem; }
+  .sub { border-top: 1px solid #eee; padding: 0.5rem 0; }
+  .sub .sub-title { font-weight: 600; }
+  .sub .sub-type { font-weight: normal; color: #777; font-size: 0.75rem; text-transform: uppercase; }
+  .sub .sub-meta { color: #555; font-size: 0.85rem; margin-top: 0.15rem; }
+  table.data { border-collapse: collapse; width: 100%; font-size: 0.85rem; margin-top: 0.3rem; }
+  table.data th, table.data td { border: 1px solid #999; padding: 0.25rem 0.5rem; text-align: left; }
+  table.data caption { text-align: left; font-weight: 600; margin-bottom: 0.3rem; }
+  .out-of-tol { color: #a00; font-weight: 600; }
+  .in-tol { color: #1a6a2c; }
+  .photos { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
+  .photos figure { margin: 0; }
+  .photos img { max-width: 180px; border-radius: 4px; display: block; }
+  .photos figcaption { font-size: 0.7rem; color: #777; }
+  .failures { margin-top: 0.75rem; border: 1px dashed #a00; border-radius: 8px; padding: 0.5rem 0.75rem; }
+  .failures h4 { margin: 0 0 0.3rem; color: #a00; font-size: 0.95rem; }
+  .no-content { color: #999; font-size: 0.9rem; }
+  section.history { margin-top: 1.5rem; }
+  section.history h2 { font-size: 1.1rem; border-bottom: 1px solid #ccc; padding-bottom: 0.2rem; }
+</style>
+</head>
+<body>
+
+<div class="footer">
+  Build Record &middot; Unit {{ unit.id }} &middot; Serial {{ unit.serial_number or "unassigned" }} &middot; generated {{ generated_at }}{% if generated_by %} by {{ generated_by }}{% endif %}
+</div>
+
+<section class="cover">
+  <h1>Build Record</h1>
+  <p class="op-meta">Work Order {{ work_order.id if work_order else "—" }} &middot; Unit #{{ unit.unit_no }}</p>
+
+  <dl class="cover-grid">
+    <div><dt>Serial number</dt><dd>{{ unit.serial_number or "—" }}</dd></div>
+    <div><dt>Status</dt><dd>{{ unit.status }}</dd></div>
+    <div><dt>Product</dt><dd>{{ product.name if product else "—" }}</dd></div>
+    <div><dt>Variant</dt><dd>{{ work_order.variant_values if work_order else "—" }}</dd></div>
+    <div><dt>Order #</dt><dd>{{ order_number or "—" }}</dd></div>
+    <div><dt>Job #</dt><dd>{{ job_number or "—" }}</dd></div>
+    <div>
+      <dt>First pass</dt>
+      <dd>
+        {% if unit.first_pass %}<span class="badge badge-good">first-pass</span>
+        {% else %}<span class="badge badge-warn">reworked ({{ unit.rework_count }}x)</span>{% endif %}
+      </dd>
+    </div>
+    <div><dt>Completed</dt><dd>{{ unit.completed_at or "—" }}</dd></div>
+    {% if remake_of_serial %}<div><dt>Remake of</dt><dd>{{ remake_of_serial }}</dd></div>{% endif %}
+  </dl>
+</section>
+
+{% for entry in ops %}
+<section class="op-page">
+  <div class="op-header">
+    <h2>Op {{ entry.op.seq }}{% if entry.op.operation_code %} &middot; {{ entry.op.operation_code }}{% endif %} &mdash; {{ entry.op.title }}</h2>
+    <div class="op-meta">Instruction v{{ entry.op.instruction_version or "—" }}</div>
+  </div>
+
+  {% if entry.op.blocked %}
+  <p class="no-content">No instructions were bound to this operation.</p>
+  {% elif not entry.steps %}
+  <p class="no-content">No step data recorded.</p>
+  {% else %}
+  {% for step in entry.steps %}
+  <div class="step">
+    <h3>Step {{ step.seq }}: {{ step.title }} &mdash; <span class="op-meta">{{ step.status }}{% if step.completed_by %} by {{ step.completed_by }}{% endif %}{% if step.completed_at %} at {{ step.completed_at }}{% endif %}</span></h3>
+
+    {% for sub in step.substeps %}
+    <div class="sub">
+      <div>
+        <span class="sub-title">{{ sub.seq }}. {{ sub.title }}</span>
+        <span class="sub-type">[{{ sub.type }}]</span>
+      </div>
+      <div class="sub-meta">
+        Status: {{ sub.status }}
+        {% if sub.operator %} &middot; by {{ sub.operator }}{% endif %}
+        {% if sub.completed_at %} &middot; {{ sub.completed_at }}{% endif %}
+        {% if sub.skip_reason %} &middot; skipped: {{ sub.skip_reason }}{% endif %}
+        {% if sub.notes %} &middot; notes: {{ sub.notes }}{% endif %}
+      </div>
+
+      {% if sub.type == "signoff" %}
+      <div class="sub-meta">Signoff role required: <strong>{{ sub.signoff_role or "—" }}</strong>{% if sub.operator %} &middot; signed by {{ sub.operator }}{% endif %}</div>
+      {% endif %}
+
+      {% if sub.measurements %}
+      <table class="data">
+        <caption>Measurements</caption>
+        <thead><tr><th>Name</th><th>Nominal</th><th>Tolerance</th><th>Actual</th><th>In/Out</th><th>Gauge</th><th>Recorded</th></tr></thead>
+        <tbody>
+          {% for m in sub.measurements %}
+          <tr>
+            <td>{{ m.name }}</td>
+            <td>{{ m.nominal }} {{ m.unit or "" }}</td>
+            <td>+{{ m.tol_plus }} / -{{ m.tol_minus }}</td>
+            <td>{{ m.value }} {{ m.unit or "" }}</td>
+            <td class="{{ 'in-tol' if m.in_tolerance else 'out-of-tol' }}">{{ "IN" if m.in_tolerance else "OUT" }}</td>
+            <td>{{ m.gauge_id or "—" }}</td>
+            <td>{{ m.recorded_at }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
+      {% if sub.disposition %}
+      <div class="sub-meta">Disposition: <strong>{{ sub.disposition }}</strong>{% if sub.disposition_by %} authorized by {{ sub.disposition_by }}{% endif %}</div>
+      {% endif %}
+
+      {% if sub.photos %}
+      <div class="photos">
+        {% for p in sub.photos %}
+        <figure>
+          <img src="{{ p.uri }}" alt="photo">
+          {% if p.uploaded_by %}<figcaption>{{ p.uploaded_by }}</figcaption>{% endif %}
+        </figure>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="no-content">No substeps recorded.</p>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if entry.failures %}
+  <div class="failures">
+    <h4>Failures &amp; dispositions</h4>
+    <table class="data">
+      <thead><tr><th>Detected</th><th>By</th><th>Narrative</th><th>Disposition</th><th>Authorized by</th><th>Rework to</th></tr></thead>
+      <tbody>
+        {% for f in entry.failures %}
+        <tr>
+          <td>{{ f.detected_at }}</td>
+          <td>{{ f.detected_by or "—" }}</td>
+          <td>{{ f.narrative or "—" }}</td>
+          <td>{{ f.disposition }}</td>
+          <td>{{ f.authorized_by or "—" }}</td>
+          <td>{{ f.rework_to_op_title or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+{% endfor %}
+
+<section class="history">
+  <h2>Work sessions</h2>
+  {% if sessions %}
+  <table class="data">
+    <thead><tr><th>Operation</th><th>Operator</th><th>Station</th><th>Kind</th><th>Started</th><th>Ended</th><th>Close reason</th><th>Active min</th></tr></thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td>{{ s.op_title or "—" }}</td>
+        <td>{{ s.operator or "—" }}</td>
+        <td>{{ s.station or "—" }}</td>
+        <td>{{ s.kind }}</td>
+        <td>{{ s.started_at }}</td>
+        <td>{{ s.ended_at or "open" }}</td>
+        <td>{{ s.close_reason or "—" }}</td>
+        <td>{{ s.active_minutes if s.active_minutes is not none else "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="no-content">No work sessions recorded.</p>
+  {% endif %}
+</section>
+
+<section class="history">
+  <h2>Scan history</h2>
+  {% if scans %}
+  <table class="data">
+    <thead><tr><th>Scanned at</th><th>Result</th><th>Payload</th><th>Station</th><th>Operator</th><th>Override by</th></tr></thead>
+    <tbody>
+      {% for s in scans %}
+      <tr>
+        <td>{{ s.scanned_at }}</td>
+        <td>{{ s.result }}</td>
+        <td>{{ s.raw_payload }}</td>
+        <td>{{ s.station or "—" }}</td>
+        <td>{{ s.operator or "—" }}</td>
+        <td>{{ s.override_by or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="no-content">No scans recorded.</p>
+  {% endif %}
+</section>
+
+<section class="history">
+  <h2>Transit history</h2>
+  {% if transits %}
+  <table class="data">
+    <thead><tr><th>From</th><th>To</th><th>Departed</th><th>Arrived</th><th>Seconds</th></tr></thead>
+    <tbody>
+      {% for t in transits %}
+      <tr>
+        <td>{{ t.from_station or "—" }}</td>
+        <td>{{ t.to_station or "—" }}</td>
+        <td>{{ t.departed_at }}</td>
+        <td>{{ t.arrived_at or "—" }}</td>
+        <td>{{ t.seconds if t.seconds is not none else "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="no-content">No transits recorded.</p>
+  {% endif %}
+</section>
+
+<section class="history">
+  <h2>Box history</h2>
+  {% if boxes %}
+  <table class="data">
+    <thead><tr><th>Box</th><th>Assigned</th><th>Released</th><th>Assigned by</th></tr></thead>
+    <tbody>
+      {% for b in boxes %}
+      <tr>
+        <td>{{ b.label or "—" }}</td>
+        <td>{{ b.assigned_at }}</td>
+        <td>{{ b.released_at or "still assigned" }}</td>
+        <td>{{ b.assigned_by or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="no-content">No box assignments recorded.</p>
+  {% endif %}
+</section>
+
+</body>
+</html>

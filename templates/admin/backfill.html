@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Admin · Backfill — Atlas MES{% endblock %}
+{% block header_title %}Backfill{% endblock %}
+
+{% block main %}
+
+{% if request.query_params.get("ok") %}
+<div class="banner banner-ok">Backfill entry recorded.</div>
+{% endif %}
+
+{% if mode == "picker" %}
+<section class="card">
+  <h2>Paper backfill (DD §17.2)</h2>
+  <p class="muted">
+    After an MES outage, crews fall back to the printed guide and paper measurement
+    boxes. Once the system is back, pick a unit below and transcribe that paper data —
+    it is recorded through the exact same substep/measurement/finish logic a live
+    station uses, and flagged so it's distinguishable in the unit's history.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Unit</th><th>Product</th><th>Work order</th><th>Status</th><th>Current op</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for row in units %}
+        <tr>
+          <td>#{{ row.unit.unit_no }}</td>
+          <td>{{ row.product.name }}</td>
+          <td>{{ row.work_order.id }}</td>
+          <td>{{ row.unit.status }}</td>
+          <td>{{ row.plan_op.title if row.plan_op else "—" }}</td>
+          <td><a class="btn btn-sm" href="/admin/backfill/{{ row.unit.id }}">Backfill</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6">No units awaiting completion.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% else %}
+<section class="card">
+  <h2>Unit #{{ unit.unit_no }} — {{ plan_op.title }}</h2>
+  <p class="muted">{{ remaining }} required substep(s) still open on this operation.</p>
+
+  <form method="post" action="/admin/backfill/{{ unit.id }}">
+    <div class="form-row">
+      <label>Performed by (who did the work on paper)
+        <select name="performed_by_operator_id" required>
+          <option value="">— select —</option>
+          {% for op in operators %}<option value="{{ op.id }}">{{ op.display_name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Authorizing lead (badge required to record this backfill)
+        <select name="lead_operator_id" required>
+          <option value="">— select —</option>
+          {% for op in leads %}<option value="{{ op.id }}">{{ op.display_name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>When (paper timestamp — backdating allowed)
+        <input type="datetime-local" name="paper_at" required>
+      </label>
+    </div>
+
+    {% for step in plan_op.frozen_content.get("steps", []) %}
+    <fieldset class="card">
+      <legend>Step {{ step.seq }} — {{ step.title }}</legend>
+      {% for sub in step.get("substeps", []) %}
+      {% set exec = exec_map.get((step.seq, sub.seq)) %}
+      <div class="substep-row">
+        <strong>{{ sub.seq }}. {{ sub.title }}</strong>
+        <span class="muted">
+          ({{ sub.type }}{{ ", optional" if not sub.get("required", True) else "" }}{{
+            (" — already " ~ exec.status) if exec else "" }})
+        </span>
+        <div class="substep-controls">
+          <label>
+            <input type="radio" name="sub_{{ step.seq }}_{{ sub.seq }}_action" value="leave" checked>
+            Leave as-is
+          </label>
+
+          {% if sub.type in ("action", "inspection") %}
+          <label><input type="radio" name="sub_{{ step.seq }}_{{ sub.seq }}_action" value="done"> Done</label>
+          <label><input type="radio" name="sub_{{ step.seq }}_{{ sub.seq }}_action" value="fail"> Failed</label>
+          <label><input type="radio" name="sub_{{ step.seq }}_{{ sub.seq }}_action" value="skip"> Skip</label>
+          <input type="text" name="sub_{{ step.seq }}_{{ sub.seq }}_skip_reason" placeholder="skip reason (if Skip)">
+          <input type="text" name="sub_{{ step.seq }}_{{ sub.seq }}_notes" placeholder="notes">
+
+          {% elif sub.type == "measurement" %}
+          <label>
+            <input type="radio" name="sub_{{ step.seq }}_{{ sub.seq }}_action" value="measurement">
+            Record measurement
+          </label>
+          <input type="text" name="sub_{{ step.seq }}_{{ sub.seq }}_value"
+                 placeholder="value{{ (' (' ~ sub.measurement_spec.unit ~ ')') if sub.measurement_spec else '' }}">
+          <input type="text" name="sub_{{ step.seq }}_{{ sub.seq }}_gauge_id" placeholder="gauge id">
+          <input type="text" name="sub_{{ step.seq }}_{{ sub.seq }}_notes" placeholder="notes">
+          <details>
+            <summary>If out of tolerance: disposition</summary>
+            <select name="sub_{{ step.seq }}_{{ sub.seq }}_disposition">
+              <option value="">—</option>
+              <option value="rework_in_place">Rework in place</option>
+              <option value="use_as_is">Use as-is</option>
+              <option value="rework_to_op">Rework to op</option>
+              <option value="scrap">Scrap</option>
+            </select>
+            <select name="sub_{{ step.seq }}_{{ sub.seq }}_failure_code_id">
+              <option value="">—</option>
+              {% for fc in failure_codes %}
+              <option value="{{ fc.id }}">{{ fc.code }} — {{ fc.label }}</option>
+              {% endfor %}
+            </select>
+            <input type="number" name="sub_{{ step.seq }}_{{ sub.seq }}_rework_to_op_seq"
+                   placeholder="rework-to op seq">
+          </details>
+
+          {% elif sub.type == "material" %}
+          <label>
+            <input type="radio" name="sub_{{ step.seq }}_{{ sub.seq }}_action" value="material">
+            Record material
+          </label>
+          <input type="text" name="sub_{{ step.seq }}_{{ sub.seq }}_part_number" placeholder="part number">
+          <input type="text" name="sub_{{ step.seq }}_{{ sub.seq }}_qty_used" placeholder="qty used">
+          <input type="text" name="sub_{{ step.seq }}_{{ sub.seq }}_qty_scrapped" placeholder="qty scrapped">
+          <input type="text" name="sub_{{ step.seq }}_{{ sub.seq }}_lot" placeholder="lot">
+          <input type="text" name="sub_{{ step.seq }}_{{ sub.seq }}_uom" placeholder="uom">
+          <input type="text" name="sub_{{ step.seq }}_{{ sub.seq }}_substitution_for"
+                 placeholder="substitution for (if not the planned part)">
+
+          {% elif sub.type == "signoff" %}
+          <label>
+            <input type="radio" name="sub_{{ step.seq }}_{{ sub.seq }}_action" value="signoff">
+            Signoff (by the authorizing lead above)
+          </label>
+
+          {% elif sub.type == "photo" %}
+          <label>
+            <input type="radio" name="sub_{{ step.seq }}_{{ sub.seq }}_action" value="skip">
+            Skip (no photo captured on paper)
+          </label>
+          <input type="hidden" name="sub_{{ step.seq }}_{{ sub.seq }}_skip_reason"
+                 value="paper backfill: no photo available">
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </fieldset>
+    {% endfor %}
+
+    <div class="form-row">
+      <label>
+        <input type="checkbox" name="finish">
+        Mark this operation finished (advances the unit, posts the JB2 time-ticket write-back)
+      </label>
+    </div>
+    <button type="submit" class="btn btn-danger">Submit backfill entry</button>
+  </form>
+</section>
+{% endif %}
+
+{% endblock %}

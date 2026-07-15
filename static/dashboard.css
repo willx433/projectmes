@@ -1,0 +1,100 @@
+/* Atlas MES — pipeline dashboard (P4-02). Card anatomy and color language
+   copied verbatim from documentation/pistol_flow_visual.html §4 (the
+   approved visual) -- same variable names/values so the two stay in sync
+   at a glance. Dark TV theme is the only theme (this page is designed to
+   run on a wall-mounted TV as much as a browser tab), but the grid is
+   responsive down to tablet widths per the mobile-friendly constraint. */
+
+:root {
+  --jb2: #1f6f8b; --jb2-mid: #7fb0c2;
+  --mes: #c0392b;
+  --shared: #f2a541;
+  --green: #2e8b57; --purple: #8e44ad; --amber: #e67e22; --red: #c0392b; --grey: #5a6673;
+}
+
+* { box-sizing: border-box; }
+
+.dash-body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #14171b;
+  color: #dfe5eb;
+}
+
+.tv { padding: 18px; max-width: 1400px; margin: 0 auto; }
+
+.tv-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+}
+.tv-head .title { color: #fff; font-weight: 700; font-size: 18px; }
+
+.dash-nav { display: flex; align-items: center; gap: 14px; font-size: 13px; flex-wrap: wrap; }
+.dash-nav a { color: #9fb4c8; text-decoration: none; }
+.dash-nav a:hover, .dash-nav a.active { color: #fff; text-decoration: underline; }
+.group-toggle a { margin: 0 4px; }
+.tv-link { border: 1px solid #39424c; border-radius: 6px; padding: 4px 10px; }
+
+.kpis { display: flex; gap: 10px; flex-wrap: wrap; }
+.kpi { background: #242a31; border-radius: 8px; padding: 8px 16px; text-align: center; }
+.kpi .v { color: #fff; font-weight: 700; font-size: 18px; }
+.kpi .k { color: #8b95a1; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
+
+.group-head { font-size: 14px; color: #9fb4c8; margin: 18px 0 8px; font-weight: 600; }
+.empty { color: #8b95a1; font-style: italic; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+
+.card {
+  background: #242a31; border-radius: 10px; padding: 14px 16px;
+  border-left: 5px solid var(--green); color: #dfe5eb; min-width: 0;
+}
+.card-green { border-left-color: var(--green); }
+.card-purple { border-left-color: var(--purple); box-shadow: 0 0 0 1px var(--purple) inset; }
+.card-amber { border-left-color: var(--amber); }
+.card-red { border-left-color: var(--red); }
+.card-grey { border-left-color: var(--grey); opacity: .85; }
+.card-hatched {
+  border-left-color: var(--grey);
+  background-image: repeating-linear-gradient(
+    135deg, #242a31, #242a31 10px, #2c3238 10px, #2c3238 20px
+  );
+}
+
+.card .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.card .model { font-weight: 700; color: #fff; font-size: 15px; }
+.card .serial { font-family: Consolas, monospace; font-size: 11px; color: #9fb4c8; margin-top: 2px; word-break: break-word; }
+
+.badge { font-size: 9px; font-weight: 800; letter-spacing: .6px; border-radius: 3px; padding: 2px 6px; text-transform: uppercase; white-space: nowrap; }
+.badge-fp { background: #1d3d2c; color: #6fdc9c; }
+.badge-rw { background: #332240; color: #c39bdb; }
+.badge-q { background: #333a42; color: #98a4b1; }
+
+.card .row { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: #8b95a1; margin-top: 7px; }
+.card .row b { color: #cdd6de; font-weight: 600; text-align: right; }
+
+.ops { display: flex; gap: 4px; margin-top: 9px; }
+.op { flex: 1; height: 7px; border-radius: 3px; background: #39424c; }
+.op.done { background: var(--jb2-mid); }
+.op.cur { background: var(--shared); box-shadow: 0 0 6px var(--shared); }
+.op.redo { background: var(--purple); }
+
+.bar-label { display: flex; justify-content: space-between; font-size: 10px; color: #8b95a1; margin-top: 8px; }
+.bar { height: 6px; background: #39424c; border-radius: 3px; margin-top: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 3px; background: var(--green); }
+.card-purple .bar i { background: var(--purple); }
+.card-amber .bar i { background: var(--amber); }
+.card-red .bar i { background: var(--red); }
+
+.foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 9px; font-size: 10.5px; color: #8b95a1; flex-wrap: wrap; }
+.flag { color: #e8b249; } .flagr { color: #e77; }
+
+.src-note { margin-top: 18px; font-size: 11px; color: #8b95a1; }
+.src-note b.j { color: #6fa9bd; } .src-note b.m { color: #d98577; }
+
+@media (max-width: 480px) {
+  .tv { padding: 10px; }
+  .cards { grid-template-columns: 1fr; }
+  .kpis { width: 100%; justify-content: space-between; }
+  .kpi { flex: 1; padding: 6px 8px; }
+}

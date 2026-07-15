@@ -1,0 +1,30 @@
+{# One pipeline card -- anatomy/order matches pistol_flow_visual.html §4
+   exactly: model+badge / serial+order+box / station / operator-or-failure /
+   op-segment track / step+route bar / due-date+flag footer. #}
+<div class="card card-{{ card.color }}">
+  <div class="top">
+    <span class="model">{{ card.product or "—" }}</span>
+    <span class="badge badge-{{ 'rw' if (card.rework_count and not card.first_pass) else ('q' if card.state == 'queued' else 'fp') }}">{{ card.badge_label }}</span>
+  </div>
+  <div class="serial">SN {{ card.serial or "— unassigned" }} &middot; {{ card.job_ref or "—" }} &middot; Box {{ card.box_label or "—" }}</div>
+  <div class="row"><span>Station</span><b>{{ card.station_label or "—" }}</b></div>
+  {% if card.operator %}
+  <div class="row"><span>Operator</span><b>{{ card.operator }} — active {{ (card.elapsed_seconds // 60) }}m</b></div>
+  {% elif card.last_failure %}
+  <div class="row"><span>Last failure</span><b>{{ card.last_failure }}</b></div>
+  {% endif %}
+  <div class="ops">
+    {% for op in card.ops %}<i class="op {{ op.cls }}" title="Op {{ op.seq }} — {{ op.title }}"></i>{% endfor %}
+  </div>
+  <div class="bar-label">
+    <span>{% if card.step_progress %}Step {{ card.step_progress }} this op{% else %}Not started{% endif %}</span>
+    <span>route {{ card.route_pct }}%</span>
+  </div>
+  <div class="bar"><i style="width: {{ card.route_pct }}%"></i></div>
+  <div class="foot">
+    <span class="{{ 'flagr' if card.overdue_days else '' }}">
+      {% if card.due_date %}Due {{ card.due_date }} (JB2){% if card.overdue_days %} — {{ card.overdue_days }}d late{% endif %}{% else %}no due date{% endif %}
+    </span>
+    {% if card.state == 'stalled' and card.dwell_hours %}<span class="flag">&#9873; dwell {{ card.dwell_hours }}h</span>{% endif %}
+  </div>
+</div>

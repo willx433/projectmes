@@ -1,0 +1,52 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Pipeline &middot; Atlas MES{% endblock %}
+
+{% block content %}
+<div class="tv">
+  <div class="tv-head">
+    <div class="title">ATLAS — LIVE PRODUCTION</div>
+    {% if not tv_mode %}
+    <nav class="dash-nav">
+      <a href="/admin/health">&larr; Admin</a>
+      <span class="group-toggle">
+        Group by:
+        <a href="/dashboard{{ '?group_by=station' }}" class="{{ 'active' if group_by == 'station' else '' }}">Station</a>
+        <a href="/dashboard{{ '?group_by=product' }}" class="{{ 'active' if group_by == 'product' else '' }}">Product</a>
+        <a href="/dashboard{{ '?group_by=due' }}" class="{{ 'active' if group_by == 'due' else '' }}">Due date</a>
+        <a href="/dashboard" class="{{ 'active' if not group_by else '' }}">None</a>
+      </span>
+      <a href="/dashboard?tv=1" class="tv-link">Open TV view</a>
+    </nav>
+    {% endif %}
+    <div class="kpis">
+      <div class="kpi"><div class="v">{{ kpis.wip }}</div><div class="k">WIP</div></div>
+      <div class="kpi"><div class="v">{{ kpis.first_pass_pct }}%</div><div class="k">First pass</div></div>
+      <div class="kpi"><div class="v">{{ kpis.in_rework }}</div><div class="k">In rework</div></div>
+      <div class="kpi"><div class="v">{{ kpis.stalled }}</div><div class="k">Stalled</div></div>
+      <div class="kpi"><div class="v">{{ kpis.on_time_pct }}%</div><div class="k">On time</div></div>
+    </div>
+  </div>
+
+  {% for group in groups %}
+    {% if group.key %}<h2 class="group-head">{{ group.key }}</h2>{% endif %}
+    <div class="cards">
+      {% for card in group.cards %}
+        {% include "dashboard/_card.html" %}
+      {% else %}
+        <p class="empty">No units in flight.</p>
+      {% endfor %}
+    </div>
+  {% endfor %}
+
+  <div class="src-note">Data provenance — <b class="j">from JobBOSS&sup2;:</b> model/part, order + line, due date, routing.
+    <b class="m">from MES:</b> serial, box, live location, operator, step progress, first-pass/rework state, failure codes, dwell.</div>
+</div>
+
+<script>
+  // ponytail: on any "refresh" ping, just reload the page -- this is a wall
+  // board/status page, not an animated UI; a full reload keeps grouping/tv
+  // params (they're in the URL) and needs no client-side DOM-patching code.
+  var es = new EventSource("/dashboard/stream");
+  es.addEventListener("refresh", function () { location.reload(); });
+</script>
+{% endblock %}

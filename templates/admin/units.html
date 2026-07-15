@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Admin · Units — Atlas MES{% endblock %}
+{% block header_title %}Units{% endblock %}
+
+{% block main %}
+
+<section class="card">
+  <h2>Completed units</h2>
+  <p class="muted">Build records are generated on demand — click Generate the first time, then Download.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Serial</th><th>Product</th><th>Unit #</th><th>First pass</th><th>Completed</th><th>Build record</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><a href="/units/{{ row.unit.id }}">{{ row.unit.serial_number or "—" }}</a></td>
+          <td>{{ row.product.name if row.product else "—" }}</td>
+          <td>{{ row.unit.unit_no }}</td>
+          <td>
+            {% if row.unit.first_pass %}<span class="badge badge-active">first-pass</span>
+            {% else %}<span class="badge badge-inactive">rework x{{ row.unit.rework_count }}</span>{% endif %}
+          </td>
+          <td>{{ row.unit.completed_at or "—" }}</td>
+          <td>
+            {% if row.record_exists %}
+            <a href="{{ row.record_url }}">Download</a>
+            {% endif %}
+            <form method="post" action="/admin/units/{{ row.unit.id }}/build-record" style="display:inline">
+              <button type="submit" class="btn">{{ "Regenerate" if row.record_exists else "Generate" }}</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6">No completed units yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}

@@ -216,6 +216,11 @@ def _record_scan(
         result=result,
         override_by=override_by,
         work_session_id=work_session_id,
+        # app-level UTC (not the DB server_default): matches every other
+        # timestamp in the system and keeps microsecond ordering, so same-second
+        # scans don't misorder in the audit trail (SQLite server_default is
+        # whole-second). Same class as G3-D1.
+        scanned_at=datetime.now(timezone.utc),
     )
     session.add(scan)
     session.flush()

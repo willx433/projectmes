@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Unit {{ unit.unit_no }} — Atlas MES{% endblock %}
+{% block header_title %}Unit drill-down{% endblock %}
+
+{% block main %}
+
+<section class="card unit-card-{{ 'rework' if not unit.first_pass else 'firstpass' }}">
+  <h2>
+    {{ product.name if product else "Unknown product" }} — Unit {{ unit.unit_no }}
+    {% if unit.serial_number %}<span class="muted">SN {{ unit.serial_number }}</span>{% endif %}
+    <span class="badge {{ 'badge-active' if unit.status == 'done' else 'badge-inactive' }}">{{ unit.status }}</span>
+    {% if not unit.first_pass %}<span class="badge badge-in_review">rework ×{{ unit.rework_count }}</span>{% endif %}
+  </h2>
+  <table class="unit-facts">
+    <tr><td class="muted">Work order</td><td>{{ work_order.id }}</td></tr>
+    <tr><td class="muted">JB2 job / order</td><td>{{ jb2.job_number or "—" }} / {{ jb2.order_number or "—" }}</td></tr>
+    <tr><td class="muted">JB2 part number</td><td>{{ jb2.part_number or "—" }}</td></tr>
+    <tr><td class="muted">Plan version</td><td>{{ work_order.plan_version }}</td></tr>
+    <tr><td class="muted">Due date</td><td>{{ work_order.due_date or "—" }}</td></tr>
+    <tr><td class="muted">Completed at</td><td>{{ unit.completed_at or "—" }}</td></tr>
+    {% if unit.remake_of_unit_id %}
+    <tr><td class="muted">Remake of</td><td><a href="/units/{{ unit.remake_of_unit_id }}">{{ unit.remake_of_unit_id }}</a></td></tr>
+    {% endif %}
+  </table>
+</section>
+
+<section class="card">
+  <h2>Execution plan (frozen)</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Seq</th><th>Operation</th><th>Code</th><th>Instruction v</th><th>Est. min</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for op in plan_operations %}
+        <tr>
+          <td>{{ op.seq }}</td>
+          <td>{{ op.title }}</td>
+          <td>{{ op.operation_code or "—" }}</td>
+          <td>{{ op.instruction_version or "—" }}</td>
+          <td>{{ op.est_minutes if op.est_minutes is not none else "—" }}</td>
+          <td>{{ op.status }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6">No plan operations.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Timeline ({{ timeline|length }} events)</h2>
+  <ul class="timeline">
+    {% for e in timeline %}
+    <li class="tl-entry tl-{{ e.category }}">
+      <div class="tl-at">{{ e.at }}</div>
+      <div class="tl-body">
+        {% if e.category == "box" %}
+          {% if e.kind == "box_assigned" %}
+            <strong>Box assigned</strong> {{ e.box_qr }}{% if e.box_label %} ({{ e.box_label }}){% endif %}
+            {% if e.assigned_by %} by {{ e.assigned_by }}{% endif %}
+          {% else %}
+            <strong>Box released</strong> {{ e.box_qr }}
+          {% endif %}
+        {% elif e.category == "scan" %}
+          <strong>Scan</strong> {{ e.result }} @ {{ e.station or "—" }}
+          {% if e.operator %} · operator {{ e.operator }}{% endif %}
+          {% if e.override_by %} · override by {{ e.override_by }}{% endif %}
+        {% elif e.category == "session" %}
+          {% if e.kind == "session_opened" %}
+            <strong>Session opened</strong> ({{ e.session_kind }}) {{ e.operation }} — {{ e.operator }} @ {{ e.station }}
+          {% elif e.kind == "session_paused" %}
+            <strong>Session paused</strong> reason: {{ e.reason_code }}
+          {% elif e.kind == "session_resumed" %}
+            <strong>Session resumed</strong>
+          {% else %}
+            <strong>Session closed</strong> ({{ e.close_reason }}){% if not e.lead_confirmed and e.close_reason == "auto_closed" %} — awaiting lead confirm{% endif %}
+          {% endif %}
+        {% elif e.category == "substep" %}
+          <strong>Substep {{ e.type }}</strong>
+          {{ e.step_title or "" }}{% if e.substep_title %} / {{ e.substep_title }}{% endif %}
+          — {{ e.kind.replace("substep_", "") }}
+          {% if e.value_numeric is not none %} · value {{ e.value_numeric }}{% endif %}
+          {% if e.out_of_tolerance %} · <span class="tl-warn">OUT OF TOLERANCE</span>{% endif %}
+          {% if e.disposition %} · disposition {{ e.disposition }}{% endif %}
+          {% if e.skip_reason %} · skipped: {{ e.skip_reason }} (auth {{ e.skip_authorized_by }}){% endif %}
+          {% if e.superseded %} · <span class="muted">(superseded)</span>{% endif %}
+          {% if e.operator %} · {{ e.operator }}{% endif %}
+        {% elif e.category == "measurement" %}
+          <strong>Measurement</strong> {{ e.name }} = {{ e.value }} {{ e.unit or "" }}
+          (nominal {{ e.nominal }} +{{ e.tol_plus }}/-{{ e.tol_minus }})
+          — {{ "IN TOLERANCE" if e.in_tolerance else "OUT OF TOLERANCE" }}
+          {% if e.gauge_id %} · gauge {{ e.gauge_id }}{% endif %}
+          {% if e.operator %} · {{ e.operator }}{% endif %}
+        {% elif e.category == "failure" %}
+          <strong>Failure</strong> {{ e.failure_label or e.failure_code or "—" }} — {{ e.disposition }}
+          {% if e.rework_to_op %} → {{ e.rework_to_op }}{% endif %}
+          {% if e.narrative %} · "{{ e.narrative }}"{% endif %}
+          {% if e.detected_by %} · detected by {{ e.detected_by }}{% endif %}
+          {% if e.authorized_by %} · authorized by {{ e.authorized_by }}{% endif %}
+        {% elif e.category == "scrap" %}
+          <strong>Scrapped</strong>
+          {% if e.cause_code %}cause {{ e.cause_code }}{% endif %}
+          {% if e.material_value_est is not none %} · est. value lost ${{ "%.2f"|format(e.material_value_est) }}{% endif %}
+          {% if e.authorized_by %} · authorized by {{ e.authorized_by }}{% endif %}
+          {% if e.replacement_unit_no %} · replacement unit #{{ e.replacement_unit_no }}{% endif %}
+        {% elif e.category == "transit" %}
+          {% if e.kind == "transit_departed" %}
+            <strong>In transit</strong> {{ e.from_station or "—" }} → {{ e.to_station or "next station" }}
+          {% else %}
+            <strong>Arrived</strong> {{ e.to_station or "—" }}{% if e.seconds is not none %} ({{ e.seconds }}s in transit){% endif %}
+          {% endif %}
+        {% else %}
+          <strong>{{ e.verb }}</strong>{% if e.actor %} — {{ e.actor }}{% endif %}
+          {% if e.after %} · {{ e.after }}{% endif %}
+        {% endif %}
+      </div>
+    </li>
+    {% else %}
+    <li>No recorded activity for this unit yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+{% endblock %}

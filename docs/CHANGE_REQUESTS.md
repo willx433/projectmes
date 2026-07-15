@@ -25,4 +25,7 @@ system) is archived history, not part of this series.
 
 | CR-014 | 2026-07-14 | P3-03 (Fable-approved) | DD §14 'Office UI uses username/password' simplified for v1: admin pages gate on the same badge/PIN operator login with role `admin` — no separate users table. Acceptable on an internal-only LAN; revisit before any broader exposure. Batched for Will's end-of-run review. | §14 | Sonnet (P3-03) | Approved (v1) | none |
 
+| CR-015 | 2026-07-15 | P4-01/02 (Fable-approved) | Dashboard live-updates use **SSE (event-table polling)** instead of DD §13.1's WebSocket. One-way refresh pings satisfy N2's <2s budget with far less machinery, proxy cleanly through Caddy, and work across the 4 uvicorn workers (WS in one worker wouldn't see another's in-proc publish). | §13.1, §11 | Sonnet (P4-01) | Approved | Gate 4 live-update check uses SSE |
+| CR-016 | 2026-07-15 | Fable (Gate 3 + P4 review) | Timestamp consistency: `to_utc()` now converts aware non-UTC datetimes (G3-D1); `Scan.scanned_at` set app-level UTC instead of DB `server_default` for microsecond ordering. Realizes DD §9/§10 intent (UTC everywhere), no behavior deviation. | §9, §10 | Fable | Approved | none |
+
 *All future scope changes: add a row with status `Proposed`, get Fable (or Will) approval, then code.*

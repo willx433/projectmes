@@ -277,3 +277,56 @@ tr.row-bad { background: #fdecea; }
   .keypad-card { background: #1e2126; color: #e8e8e8; }
   .keypad-display { background: #14161a; }
 }
+
+/* -------------------------------------------------------------------------
+   Unit drill-down (P4-03, DD §13.1) -- chronological timeline, color-coded
+   by category. Plain list, no JS -- works identically on the dashboard TV
+   browser and a phone.
+   ------------------------------------------------------------------------- */
+
+.timeline { list-style: none; margin: 0; padding: 0; }
+.tl-entry {
+  display: flex; gap: 0.75rem; padding: 0.6rem 0.4rem; border-top: 1px solid #e5e7eb;
+  border-left: 4px solid #c7cbd1;
+}
+.tl-entry:first-child { border-top: none; }
+.tl-at { flex: 0 0 11rem; font-variant-numeric: tabular-nums; color: #666; font-size: 0.85rem; }
+.tl-body { flex: 1; min-width: 0; word-break: break-word; }
+.tl-warn { color: #c0392b; font-weight: 700; }
+
+.tl-box { border-left-color: #8a6d1a; }
+.tl-scan { border-left-color: #1f6f8b; }
+.tl-session { border-left-color: #1b7a3d; }
+.tl-substep { border-left-color: #6db8d1; }
+.tl-measurement { border-left-color: #1f6f8b; }
+.tl-failure { border-left-color: #c0392b; }
+.tl-scrap { border-left-color: #c0392b; }
+.tl-transit { border-left-color: #8a6d1a; }
+.tl-event { border-left-color: #999; }
+
+@media (prefers-color-scheme: dark) {
+  .tl-entry { border-top-color: #2c3038; }
+  .tl-at { color: #999; }
+}
+
+/* -------------------------------------------------------------------------
+   Metrics dashboard (P4-04, DD §13.2/§9.11) -- plain tables + inline CSS
+   bars, no chart library (internal network, self-contained per task brief).
+   ------------------------------------------------------------------------- */
+
+.metric-bar-track {
+  background: #eef3f6; border-radius: 4px; height: 0.9rem; width: 100%; overflow: hidden;
+}
+.metric-bar-fill {
+  background: #1f6f8b; height: 100%; border-radius: 4px 0 0 4px;
+}
+.metric-bar-fill.metric-bar-bad { background: #c0392b; }
+.metric-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;
+}
+.window-form { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+.window-form input { width: 5rem; }
+
+@media (prefers-color-scheme: dark) {
+  .metric-bar-track { background: #2c3038; }
+}
