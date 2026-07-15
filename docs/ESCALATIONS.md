@@ -125,3 +125,25 @@ in `docs/CHANGE_REQUESTS.md`. Cheap tiers never improvise architecture.
 - Fable resolution: pending review.
 - Status: open (fix applied and tested; awaiting Fable sign-off on touching
   files outside this task's literal scope)
+
+
+### ESC-003 — boolean server_default="false" reads truthy on SQLite
+- Date / Task ID / Agent tier: 2026-07-15 / P3-05..07 / Sonnet
+- Context: `server_default="false"` passes the literal string 'false' which SQLite's
+  Boolean reads back as Python True, breaking `.is_(False)` filters in tests
+  (correct on Postgres). Affected superseded/lead_confirmed/blocked/resolved/active.
+- Change made: switched to `sqlalchemy.false()` across models_floor/execution/jb2.
+- Fable resolution: **APPROVED + verified.** Live Postgres downgrade→upgrade cycle
+  produces identical DDL; `test_models_match_migration.py` green. Correct fix, not a
+  workaround. No CR — realizes DD §10 intent (these columns were always meant to default
+  false).
+- Status: resolved
+
+### ESC-004 — station disposition dialog not yet wired to failures.record_failure
+- Date / Task ID / Agent tier: 2026-07-15 / P3-06 & P3-08 seam / Fable
+- Context: station measurement dialog offers rework-to-op/scrap but posts to substeps
+  API, which records substep.failed only — the deep failure/rework/scrap flow
+  (app/domain/failures.record_failure, built by P3-08) needs failure_code_id + target op
+  the dialog doesn't collect. Also /station/fail/{unit_id} whole-op fail screen is a stub.
+- Fable resolution: wiring assigned as remediation task P3-R2 (fail-flow integration).
+- Status: resolved (tracked as P3-R2)
