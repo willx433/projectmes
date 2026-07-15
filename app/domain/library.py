@@ -423,12 +423,12 @@ def move_substep(
     if neighbor_idx < 0 or neighbor_idx >= len(siblings):
         return
     neighbor = siblings[neighbor_idx]
-    a_seq = substep.seq
-    substep.seq = -1
+    a_seq, b_seq = substep.seq, neighbor.seq
+    substep.seq = -1  # park to dodge the (step_id, seq) unique constraint mid-swap
     session.flush()
     neighbor.seq = a_seq
     session.flush()
-    substep.seq = a_seq if False else neighbor.seq if False else substep.seq  # placeholder, fixed below
+    substep.seq = b_seq
     logger.info(
         "library_move_substep",
         extra={"who": who, "substep_id": str(substep_id), "direction": direction},

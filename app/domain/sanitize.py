@@ -100,7 +100,8 @@ def _demo() -> None:
     assert sanitize_html("") == ""
     assert sanitize_html("<b>bold</b>") == "<b>bold</b>"
     assert sanitize_html("<script>alert(1)</script>hi") == "hi"
-    assert sanitize_html('<div class="warning">careful</div>') == '<div class="warning">careful</div>'
+    warn = '<div class="warning">careful</div>'
+    assert sanitize_html(warn) == warn
     assert sanitize_html('<div class="evil">x</div>') == "<div>x</div>"
     assert sanitize_html("<p onclick='x()'>hi</p>") == "<p>hi</p>"
     assert sanitize_html("<ul><li>a</li><li>b</li></ul>") == "<ul><li>a</li><li>b</li></ul>"
