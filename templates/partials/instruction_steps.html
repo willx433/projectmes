@@ -1,0 +1,70 @@
+{#
+  Single source of truth for rendering an instruction set's steps/substeps
+  read-only (DD §7.2 "Preview: exactly what the station tablet will render").
+  Reused by: GET /admin/library/sets/{id}/preview (this phase), the future
+  station tablet UI and the WeasyPrint Build Guide PDF (P2-06/§8) — so it
+  stays standalone and inline-CSS-only, never depends on static/app.css or
+  any class name defined elsewhere. `tree` is a list of
+  {"step": Step, "substeps": [Substep, ...]}.
+#}
+<div style="font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1a1a1a; max-width: 800px; margin: 0 auto;">
+  <h1 style="font-size: 1.4rem; margin: 0 0 0.25rem;">{{ iset.title }}</h1>
+  <p style="color: #555; margin: 0 0 1.5rem;">
+    Version {{ iset.version }} &middot; {{ iset.state }}
+    {% if iset.est_minutes %} &middot; est. {{ iset.est_minutes }} min{% endif %}
+  </p>
+
+  {% for item in tree %}
+  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+    <h2 style="font-size: 1.1rem; margin: 0 0 0.5rem;">
+      Step {{ item.step.seq }}: {{ item.step.title }}
+      {% if item.step.est_minutes %}<span style="color:#777; font-weight: normal; font-size: 0.9rem;"> (est. {{ item.step.est_minutes }} min)</span>{% endif %}
+    </h2>
+    {% if item.step.body_html %}
+    <div style="margin-bottom: 0.75rem;">{{ item.step.body_html|safe }}</div>
+    {% endif %}
+
+    {% for sub in item.substeps %}
+    <div style="border-top: 1px solid #eee; padding: 0.6rem 0; display: flex; gap: 0.6rem; align-items: flex-start;">
+      <span style="display: inline-block; min-width: 1.5rem; height: 1.5rem; line-height: 1.5rem; text-align: center; border-radius: 50%; background: #eef3f6; font-size: 0.8rem; flex-shrink: 0;">{{ sub.seq }}</span>
+      <div style="flex: 1;">
+        <div style="font-weight: 600;">
+          {{ sub.title }}
+          <span style="font-weight: normal; color: #777; font-size: 0.8rem; text-transform: uppercase;">[{{ sub.type }}]</span>
+          {% if not sub.required %}<span style="font-weight: normal; color: #a06a00; font-size: 0.8rem;">(optional)</span>{% endif %}
+        </div>
+        {% if sub.body_html %}<div style="margin-top: 0.25rem;">{{ sub.body_html|safe }}</div>{% endif %}
+
+        {% if sub.type == "measurement" and sub.measurement_spec %}
+        <table style="margin-top: 0.4rem; border-collapse: collapse; font-size: 0.9rem;">
+          <tr><td style="padding: 0.15rem 0.5rem 0.15rem 0; color:#777;">Nominal</td><td style="padding: 0.15rem 0;">{{ sub.measurement_spec.nominal }} {{ sub.measurement_spec.unit }}</td></tr>
+          <tr><td style="padding: 0.15rem 0.5rem 0.15rem 0; color:#777;">Tolerance</td><td style="padding: 0.15rem 0;">+{{ sub.measurement_spec.tol_plus }} / {{ sub.measurement_spec.tol_minus }}</td></tr>
+          <tr><td style="padding: 0.15rem 0.5rem 0.15rem 0; color:#777;">Gauge</td><td style="padding: 0.15rem 0;">{{ sub.measurement_spec.gauge_id or "—" }}</td></tr>
+          <tr><td style="padding: 0.15rem 0.5rem 0.15rem 0; color:#777;">Decimals</td><td style="padding: 0.15rem 0;">{{ sub.measurement_spec.decimals }}</td></tr>
+          <tr><td style="padding: 0.15rem 0.5rem 0.15rem 0; color:#777;">Recorded value</td><td style="padding: 0.15rem 0; border-bottom: 1px solid #999; min-width: 6rem;">&nbsp;</td></tr>
+        </table>
+        {% endif %}
+
+        {% if sub.type == "signoff" %}
+        <div style="margin-top: 0.3rem; font-size: 0.9rem; color: #555;">
+          Signoff role: <strong>{{ sub.signoff_role or "—" }}</strong> &middot; Signature: <span style="border-bottom: 1px solid #999; display: inline-block; min-width: 8rem;">&nbsp;</span>
+        </div>
+        {% endif %}
+
+        {% if sub.type == "photo" %}
+        <div style="margin-top: 0.3rem; font-size: 0.85rem; color: #777;">[photo capture — none attached]</div>
+        {% endif %}
+
+        {% if sub.condition %}
+        <div style="margin-top: 0.3rem; font-size: 0.8rem; color: #a06a00;">Conditional: {{ sub.condition }}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <p style="color: #999; font-size: 0.9rem;">No substeps yet.</p>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color: #999;">No steps yet.</p>
+  {% endfor %}
+</div>

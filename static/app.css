@@ -118,6 +118,50 @@ tr.row-bad { background: #fdecea; }
 .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.8rem; }
 .badge-active { background: #e3f6e8; color: #1b7a3d; }
 .badge-inactive { background: #eee; color: #666; }
+.badge-draft { background: #eef3f6; color: #1f6f8b; }
+.badge-in_review { background: #fef6e0; color: #8a6d1a; }
+.badge-published { background: #e3f6e8; color: #1b7a3d; }
+.badge-retired { background: #eee; color: #666; }
+
+/* Library builder (P2-04/P2-05) */
+.inline-form { display: inline-block; margin: 0 0.25rem 0.25rem 0; }
+.btn-sm { min-height: 48px; min-width: 48px; padding: 0.4rem 0.7rem; font-size: 0.95rem; }
+.who-input {
+  font-size: 1rem;
+  padding: 0.5rem;
+  border: 1px solid #c7cbd1;
+  border-radius: 6px;
+  margin: 0 0.5rem 0.25rem 0;
+  max-width: 10rem;
+}
+.lifecycle-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.75rem; }
+.step-card { border-left: 4px solid #1f6f8b; }
+.step-head { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.step-edit-form { margin-bottom: 0.75rem; }
+.substep-row {
+  border-top: 1px solid #e5e7eb;
+  padding: 0.6rem 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.substep-edit, .substep-add { flex-basis: 100%; margin-top: 0.4rem; }
+.substep-edit summary, .substep-add summary {
+  cursor: pointer;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  color: #1f6f8b;
+  font-weight: 600;
+}
+.rt-toolbar { display: flex; gap: 0.3rem; margin-bottom: 0.3rem; }
+
+@media (prefers-color-scheme: dark) {
+  .step-card { border-left-color: #6db8d1; }
+  .substep-row { border-top-color: #2c3038; }
+  .who-input { background: #14161a; color: #e8e8e8; border-color: #2c3038; }
+}
 
 @media (prefers-color-scheme: dark) {
   body { background: #14161a; color: #e8e8e8; }

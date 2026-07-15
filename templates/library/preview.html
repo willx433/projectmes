@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Preview — {{ iset.title }} — Atlas MES{% endblock %}
+{% block header_title %}Preview{% endblock %}
+{% block main %}
+<p class="link-row"><a href="/admin/library/sets/{{ iset.id }}">&larr; Back to editor</a></p>
+<div class="card">
+  {% include "partials/instruction_steps.html" %}
+</div>
+{% endblock %}

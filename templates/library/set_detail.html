@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% import "library/_substep_fields.html" as sf with context %}
+{% block title %}{{ iset.title }} — Atlas MES{% endblock %}
+{% block header_title %}{{ iset.title }}{% endblock %}
+{% block main %}
+
+<p class="link-row"><a href="/admin/library">&larr; Library</a></p>
+
+<div class="card" hx-boost="true">
+  <h2>
+    {{ iset.title }}
+    <span class="badge badge-{{ iset.state }}">{{ iset.state }}</span>
+    <span class="muted">v{{ iset.version }} &middot; {{ product.name if product else "Global" }}</span>
+  </h2>
+  <p class="link-row"><a href="/admin/library/sets/{{ iset.id }}/preview">Preview</a></p>
+
+  {% if other_versions|length > 1 %}
+  <p class="muted">Other versions:
+    {% for v in other_versions if v.id != iset.id %}
+    <a href="/admin/library/sets/{{ v.id }}">v{{ v.version }} ({{ v.state }})</a>
+    &middot; <a href="/admin/library/sets/{{ iset.id }}/diff/{{ v.id }}">diff vs v{{ v.version }}</a>
+    {% if not loop.last %} | {% endif %}
+    {% endfor %}
+  </p>
+  {% endif %}
+
+  <div class="lifecycle-actions">
+    {% if iset.state == "draft" %}
+    <form method="post" action="/admin/library/sets/{{ iset.id }}/submit" class="inline-form">
+      <input type="text" name="who" placeholder="Your name" class="who-input">
+      <button class="btn" type="submit">Submit for review</button>
+    </form>
+    {% endif %}
+    {% if iset.state == "in_review" %}
+    <form method="post" action="/admin/library/sets/{{ iset.id }}/publish" class="inline-form">
+      <input type="text" name="who" placeholder="Your name" class="who-input">
+      {% if require_approver %}
+      <input type="text" name="approver" placeholder="Approver name" class="who-input">
+      {% endif %}
+      <button class="btn" type="submit">Publish</button>
+    </form>
+    {% endif %}
+    {% if iset.state == "published" %}
+    <form method="post" action="/admin/library/sets/{{ iset.id }}/retire" class="inline-form">
+      <input type="text" name="who" placeholder="Your name" class="who-input">
+      <button class="btn btn-danger" type="submit">Retire</button>
+    </form>
+    <form method="post" action="/admin/library/sets/{{ iset.id }}/new-draft" class="inline-form">
+      <input type="text" name="who" placeholder="Your name" class="who-input">
+      <button class="btn" type="submit">New draft (edit)</button>
+    </form>
+    {% endif %}
+    <form method="post" action="/admin/library/sets/{{ iset.id }}/clone" class="inline-form">
+      <select name="target_product_id">
+        <option value="">— Global —</option>
+        {% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+      </select>
+      <input type="text" name="who" placeholder="Your name" class="who-input">
+      <button class="btn" type="submit">Clone to…</button>
+    </form>
+  </div>
+</div>
+
+<div hx-boost="true">
+{% for item in tree %}
+<div class="card step-card">
+  <div class="step-head">
+    <span class="badge">Step {{ item.step.seq }}</span>
+    {% if editable %}
+    <form method="post" action="/admin/library/steps/{{ item.step.id }}/move" class="inline-form">
+      <input type="hidden" name="direction" value="up">
+      <button class="btn btn-sm" type="submit" aria-label="Move step up">&uarr;</button>
+    </form>
+    <form method="post" action="/admin/library/steps/{{ item.step.id }}/move" class="inline-form">
+      <input type="hidden" name="direction" value="down">
+      <button class="btn btn-sm" type="submit" aria-label="Move step down">&darr;</button>
+    </form>
+    <form method="post" action="/admin/library/steps/{{ item.step.id }}/delete" class="inline-form">
+      <button class="btn btn-sm btn-danger" type="submit">Delete step</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if editable %}
+  <form method="post" action="/admin/library/steps/{{ item.step.id }}/update" class="step-edit-form">
+    <div class="field">
+      <label for="step-title-{{ item.step.id }}">Step title</label>
+      <input type="text" id="step-title-{{ item.step.id }}" name="title" value="{{ item.step.title }}">
+    </div>
+    <div class="field">
+      <label for="step-body-{{ item.step.id }}">Step instructions</label>
+      <div class="rt-toolbar">
+        <button type="button" class="btn btn-sm" onclick="rtWrap('step-body-{{ item.step.id }}','<b>','</b>')">Bold</button>
+        <button type="button" class="btn btn-sm" onclick="rtWrap('step-body-{{ item.step.id }}','<ul><li>','</li></ul>')">List</button>
+        <button type="button" class="btn btn-sm" onclick="rtWrap('step-body-{{ item.step.id }}','<div class=&quot;warning&quot;>','</div>')">Warning</button>
+      </div>
+      <textarea id="step-body-{{ item.step.id }}" name="body_html">{{ item.step.body_html or "" }}</textarea>
+    </div>
+    <div class="field">
+      <label for="step-est-{{ item.step.id }}">Estimated minutes</label>
+      <input type="text" id="step-est-{{ item.step.id }}" name="est_minutes" inputmode="numeric" value="{{ item.step.est_minutes or "" }}">
+    </div>
+    <input type="text" name="who" placeholder="Your name" class="who-input">
+    <button class="btn" type="submit">Save step</button>
+  </form>
+  {% else %}
+  <h3>{{ item.step.title }}</h3>
+  {% if item.step.body_html %}<div>{{ item.step.body_html|safe }}</div>{% endif %}
+  {% endif %}
+
+  {% for sub in item.substeps %}
+  <div class="substep-row">
+    <span class="badge">{{ sub.seq }}. {{ sub.type }}</span>
+    {% if editable %}
+    <form method="post" action="/admin/library/substeps/{{ sub.id }}/move" class="inline-form">
+      <input type="hidden" name="direction" value="up">
+      <button class="btn btn-sm" type="submit" aria-label="Move substep up">&uarr;</button>
+    </form>
+    <form method="post" action="/admin/library/substeps/{{ sub.id }}/move" class="inline-form">
+      <input type="hidden" name="direction" value="down">
+      <button class="btn btn-sm" type="submit" aria-label="Move substep down">&darr;</button>
+    </form>
+    <form method="post" action="/admin/library/substeps/{{ sub.id }}/delete" class="inline-form">
+      <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+    </form>
+    <details class="substep-edit">
+      <summary>Edit</summary>
+      <form method="post" action="/admin/library/substeps/{{ sub.id }}/update">
+        {{ sf.substep_fields("sub-" ~ sub.id, sub_type=sub.type, substep=sub) }}
+        <button class="btn" type="submit">Save substep</button>
+      </form>
+    </details>
+    {% else %}
+    <strong>{{ sub.title }}</strong>
+    {% if sub.body_html %}<div>{{ sub.body_html|safe }}</div>{% endif %}
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="muted">No substeps yet.</p>
+  {% endfor %}
+
+  {% if editable %}
+  <details class="substep-add">
+    <summary>Add substep</summary>
+    <form method="post" action="/admin/library/steps/{{ item.step.id }}/substeps">
+      {{ sf.substep_fields("new-" ~ item.step.id) }}
+      <button class="btn" type="submit">Add substep</button>
+    </form>
+  </details>
+  {% endif %}
+</div>
+{% else %}
+<p class="muted">No steps yet.</p>
+{% endfor %}
+</div>
+
+{% if editable %}
+<div class="card">
+  <h2>Add step</h2>
+  <form method="post" action="/admin/library/sets/{{ iset.id }}/steps">
+    <div class="field">
+      <label for="new-step-title">Title</label>
+      <input type="text" id="new-step-title" name="title" required>
+    </div>
+    <div class="field">
+      <label for="new-step-body">Instructions</label>
+      <div class="rt-toolbar">
+        <button type="button" class="btn btn-sm" onclick="rtWrap('new-step-body','<b>','</b>')">Bold</button>
+        <button type="button" class="btn btn-sm" onclick="rtWrap('new-step-body','<ul><li>','</li></ul>')">List</button>
+        <button type="button" class="btn btn-sm" onclick="rtWrap('new-step-body','<div class=&quot;warning&quot;>','</div>')">Warning</button>
+      </div>
+      <textarea id="new-step-body" name="body_html"></textarea>
+    </div>
+    <div class="field">
+      <label for="new-step-est">Estimated minutes</label>
+      <input type="text" id="new-step-est" name="est_minutes" inputmode="numeric">
+    </div>
+    <input type="text" name="who" placeholder="Your name" class="who-input">
+    <button class="btn" type="submit">Add step</button>
+  </form>
+</div>
+{% endif %}
+
+<script src="/static/library.js"></script>
+{% endblock %}

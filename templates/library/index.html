@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Instruction Library — Atlas MES{% endblock %}
+{% block header_title %}Instruction Library{% endblock %}
+{% block main %}
+
+<div class="card">
+  <h2>New instruction set</h2>
+  <form method="post" action="/admin/library">
+    <div class="field">
+      <label for="title">Title</label>
+      <input type="text" id="title" name="title" required>
+    </div>
+    <div class="field">
+      <label for="product_id">Product</label>
+      <select id="product_id" name="product_id">
+        <option value="">— Global (no product) —</option>
+        {% for p in products %}
+        <option value="{{ p.id }}">{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="operation_match">Operation match (JSON, e.g. {"op_codes": ["OP10"], "work_centers": []})</label>
+      <textarea id="operation_match" name="operation_match" placeholder="{}"></textarea>
+    </div>
+    <div class="field">
+      <label for="est_minutes">Estimated minutes</label>
+      <input type="text" id="est_minutes" name="est_minutes" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label for="who">Your name</label>
+      <input type="text" id="who" name="who">
+    </div>
+    <button class="btn" type="submit">Create draft</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Global sets</h2>
+  {% if global_sets %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Title</th><th>Version</th><th>State</th><th></th></tr></thead>
+      <tbody>
+        {% for s in global_sets %}
+        <tr>
+          <td>{{ s.title }}</td>
+          <td>v{{ s.version }}</td>
+          <td><span class="badge badge-{{ s.state }}">{{ s.state }}</span></td>
+          <td><a href="/admin/library/sets/{{ s.id }}">Open</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No global sets yet.</p>
+  {% endif %}
+</div>
+
+{% for product in products %}
+<div class="card">
+  <h2>{{ product.name }}</h2>
+  {% set product_sets = sets_by_product.get(product.id, []) %}
+  {% if product_sets %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Title</th><th>Version</th><th>State</th><th></th></tr></thead>
+      <tbody>
+        {% for s in product_sets %}
+        <tr>
+          <td>{{ s.title }}</td>
+          <td>v{{ s.version }}</td>
+          <td><span class="badge badge-{{ s.state }}">{{ s.state }}</span></td>
+          <td><a href="/admin/library/sets/{{ s.id }}">Open</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No instruction sets for this product yet.</p>
+  {% endif %}
+</div>
+{% endfor %}
+
+{% endblock %}

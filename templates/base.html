@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Atlas MES{% endblock %}</title>
   <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  <script src="/static/vendor/alpine.min.js" defer></script>
 </head>
 <body>
   <header class="appbar">
@@ -13,6 +15,7 @@
     <nav class="appnav">
       <a href="/admin/health">Health</a>
       <a href="/admin/products">Products</a>
+      <a href="/admin/library">Library</a>
     </nav>
   </header>
   <main class="page">

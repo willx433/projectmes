@@ -1,0 +1,105 @@
+{#
+  Per-type substep fields (P2-05, DD §7.2/§5): action, measurement,
+  inspection, photo, material, signoff. One Alpine-toggled partial instead
+  of six near-identical template files -- the only per-type differences are
+  a handful of fields, not layout; `type` never changes after creation, so
+  edit forms just fix `sub_type` instead of offering the select.
+
+  Call with either:
+    {{ substep_fields(id_prefix, sub_type=None, substep=None) }}   -- add form (type selectable)
+    {{ substep_fields(id_prefix, sub_type="measurement", substep=existing) }} -- edit form (type fixed)
+#}
+{% macro substep_fields(id_prefix, sub_type=None, substep=None) %}
+{% set ms = substep.measurement_spec if substep else None %}
+<div{% if sub_type is none %} x-data="{ type: 'action' }"{% endif %}>
+  {% if sub_type is none %}
+  <div class="field">
+    <label for="{{ id_prefix }}-type">Type</label>
+    <select id="{{ id_prefix }}-type" name="type" x-model="type">
+      {% for t in substep_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+    </select>
+  </div>
+  {% else %}
+  <input type="hidden" name="type" value="{{ sub_type }}">
+  <p class="muted">Type: {{ sub_type }} (fixed after creation)</p>
+  {% endif %}
+
+  <div class="field">
+    <label for="{{ id_prefix }}-title">Title</label>
+    <input type="text" id="{{ id_prefix }}-title" name="title" value="{{ substep.title if substep else '' }}">
+  </div>
+
+  <div class="field field-inline">
+    <input type="checkbox" id="{{ id_prefix }}-required" name="required" {% if (substep.required if substep else True) %}checked{% endif %}>
+    <label for="{{ id_prefix }}-required">Required</label>
+  </div>
+
+  {# action / inspection / photo / material all use a plain sanitized body_html field #}
+  <div class="field"{% if sub_type is none %} x-show="['action','inspection','photo','material'].includes(type)"{% elif sub_type not in ('action', 'inspection', 'photo', 'material') %} style="display:none"{% endif %}>
+    <label for="{{ id_prefix }}-body">
+      {% if sub_type == 'inspection' %}Pass/fail criteria
+      {% elif sub_type == 'photo' %}What to photograph
+      {% elif sub_type == 'material' %}Material / qty instructions
+      {% else %}Instructions{% endif %}
+    </label>
+    <div class="rt-toolbar">
+      <button type="button" class="btn btn-sm" onclick="rtWrap('{{ id_prefix }}-body','<b>','</b>')">Bold</button>
+      <button type="button" class="btn btn-sm" onclick="rtWrap('{{ id_prefix }}-body','<ul><li>','</li></ul>')">List</button>
+      <button type="button" class="btn btn-sm" onclick="rtWrap('{{ id_prefix }}-body','<div class=&quot;warning&quot;>','</div>')">Warning</button>
+    </div>
+    <textarea id="{{ id_prefix }}-body" name="body_html">{{ substep.body_html if substep and substep.body_html else '' }}</textarea>
+  </div>
+
+  {# measurement: name/unit/nominal/+tol/-tol/gauge id/decimal places #}
+  <div{% if sub_type is none %} x-show="type === 'measurement'"{% elif sub_type != 'measurement' %} style="display:none"{% endif %}>
+    <div class="field">
+      <label for="{{ id_prefix }}-meas-name">Measurement name</label>
+      <input type="text" id="{{ id_prefix }}-meas-name" name="meas_name" value="{{ ms.name if ms else '' }}">
+    </div>
+    <div class="field">
+      <label for="{{ id_prefix }}-meas-unit">Unit</label>
+      <input type="text" id="{{ id_prefix }}-meas-unit" name="meas_unit" value="{{ ms.unit if ms else '' }}">
+    </div>
+    <div class="field">
+      <label for="{{ id_prefix }}-meas-nominal">Nominal</label>
+      <input type="text" id="{{ id_prefix }}-meas-nominal" name="meas_nominal" inputmode="decimal" value="{{ ms.nominal if ms else '' }}">
+    </div>
+    <div class="field">
+      <label for="{{ id_prefix }}-meas-tol-plus">+Tolerance</label>
+      <input type="text" id="{{ id_prefix }}-meas-tol-plus" name="meas_tol_plus" inputmode="decimal" value="{{ ms.tol_plus if ms else '' }}">
+    </div>
+    <div class="field">
+      <label for="{{ id_prefix }}-meas-tol-minus">-Tolerance</label>
+      <input type="text" id="{{ id_prefix }}-meas-tol-minus" name="meas_tol_minus" inputmode="decimal" value="{{ ms.tol_minus if ms else '' }}">
+    </div>
+    <div class="field">
+      <label for="{{ id_prefix }}-meas-gauge">Gauge id</label>
+      <input type="text" id="{{ id_prefix }}-meas-gauge" name="meas_gauge_id" value="{{ ms.gauge_id if ms and ms.gauge_id else '' }}">
+    </div>
+    <div class="field">
+      <label for="{{ id_prefix }}-meas-decimals">Decimal places</label>
+      <input type="text" id="{{ id_prefix }}-meas-decimals" name="meas_decimals" inputmode="numeric" value="{{ ms.decimals if ms is not none and ms.decimals is not none else '0' }}">
+    </div>
+  </div>
+
+  {# signoff: role select #}
+  <div class="field"{% if sub_type is none %} x-show="type === 'signoff'"{% elif sub_type != 'signoff' %} style="display:none"{% endif %}>
+    <label for="{{ id_prefix }}-signoff-role">Signoff role</label>
+    <select id="{{ id_prefix }}-signoff-role" name="signoff_role">
+      {% for role in ("operator", "lead", "qc", "approver") %}
+      <option value="{{ role }}" {% if substep and substep.signoff_role == role %}selected{% endif %}>{{ role }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="{{ id_prefix }}-condition">Condition (JSON, optional — e.g. {"field": "caliber", "in": ["9mm"]})</label>
+    <textarea id="{{ id_prefix }}-condition" name="condition" placeholder="(always shown)">{{ (substep.condition | tojson) if substep and substep.condition else '' }}</textarea>
+  </div>
+
+  <div class="field">
+    <label for="{{ id_prefix }}-who">Your name</label>
+    <input type="text" id="{{ id_prefix }}-who" name="who">
+  </div>
+</div>
+{% endmacro %}

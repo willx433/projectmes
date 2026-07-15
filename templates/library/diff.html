@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Diff — {{ a.title }} — Atlas MES{% endblock %}
+{% block header_title %}Diff{% endblock %}
+{% block main %}
+
+<p class="link-row">
+  <a href="/admin/library/sets/{{ a.id }}">&larr; v{{ a.version }}</a>
+  vs
+  <a href="/admin/library/sets/{{ b.id }}">v{{ b.version }}</a>
+</p>
+
+<div class="card">
+  <h2>Steps</h2>
+  <h3>Added</h3>
+  {% if diff.steps.added %}
+  <ul>{% for s in diff.steps.added %}<li>seq {{ s.seq }}: {{ s.title }}</li>{% endfor %}</ul>
+  {% else %}<p class="muted">None</p>{% endif %}
+
+  <h3>Removed</h3>
+  {% if diff.steps.removed %}
+  <ul>{% for s in diff.steps.removed %}<li>seq {{ s.seq }}: {{ s.title }}</li>{% endfor %}</ul>
+  {% else %}<p class="muted">None</p>{% endif %}
+
+  <h3>Changed</h3>
+  {% if diff.steps.changed %}
+  <ul>
+    {% for s in diff.steps.changed %}
+    <li>seq {{ s.seq }}: fields {{ s.fields|join(", ") }} — "{{ s.before.title }}" &rarr; "{{ s.after.title }}"</li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">None</p>{% endif %}
+</div>
+
+<div class="card">
+  <h2>Substeps</h2>
+  <h3>Added</h3>
+  {% if diff.substeps.added %}
+  <ul>{% for s in diff.substeps.added %}<li>step {{ s.step_seq }}, seq {{ s.seq }}: {{ s.title }} ({{ s.type }})</li>{% endfor %}</ul>
+  {% else %}<p class="muted">None</p>{% endif %}
+
+  <h3>Removed</h3>
+  {% if diff.substeps.removed %}
+  <ul>{% for s in diff.substeps.removed %}<li>step {{ s.step_seq }}, seq {{ s.seq }}: {{ s.title }} ({{ s.type }})</li>{% endfor %}</ul>
+  {% else %}<p class="muted">None</p>{% endif %}
+
+  <h3>Changed</h3>
+  {% if diff.substeps.changed %}
+  <ul>
+    {% for s in diff.substeps.changed %}
+    <li>step {{ s.step_seq }}, seq {{ s.seq }}: fields {{ s.fields|join(", ") }} — "{{ s.before.title }}" &rarr; "{{ s.after.title }}"</li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">None</p>{% endif %}
+</div>
+
+{% endblock %}
