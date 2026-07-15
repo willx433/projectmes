@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Admin · Kit-up — Atlas MES{% endblock %}
+{% block header_title %}Kit-up{% endblock %}
+
+{% block main %}
+
+{% if success %}
+<div class="banner banner-warn">{{ success }}</div>
+{% endif %}
+
+<section class="card">
+  <h2>1. Pick a work order</h2>
+  <p class="muted">Ready or in-progress work orders that still have a unit without a box.
+    {% if kitup_requires_lead %}Kit-up requires a lead badge.{% endif %}</p>
+  <form method="get" action="/admin/kitup">
+    <div class="field">
+      <label for="work_order_id">Work order</label>
+      <select id="work_order_id" name="work_order_id" onchange="this.form.submit()">
+        <option value="">-- select --</option>
+        {% for wo in work_orders %}
+        <option value="{{ wo.id }}" {{ "selected" if selected_wo and wo.id == selected_wo.id else "" }}>
+          {{ wo.id }} ({{ wo.status }}, qty {{ wo.qty }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <noscript><button type="submit" class="btn">Load</button></noscript>
+  </form>
+  {% if not work_orders %}
+  <p class="muted">No work orders currently need kit-up.</p>
+  {% endif %}
+</section>
+
+{% if selected_wo %}
+<section class="card">
+  <h2>2. Scan or type the box, pick the unit</h2>
+  {% if not units %}
+  <p class="muted">Every unit on this work order already has a box.</p>
+  {% else %}
+  <form method="post" action="/admin/kitup">
+    <input type="hidden" name="work_order_id" value="{{ selected_wo.id }}">
+    <div class="field">
+      <label for="unit_id">Unit</label>
+      <select id="unit_id" name="unit_id" required>
+        {% for u in units %}
+        <option value="{{ u.id }}">unit {{ u.unit_no }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="box_qr">Box QR (scan, or type — e.g. BOX:B-XXXXXXXX)</label>
+      <input type="text" id="box_qr" name="box_qr" autofocus required>
+    </div>
+    <div class="field">
+      <label for="serial">Serial number (optional — the pre-existing serial for this unit)</label>
+      <input type="text" id="serial" name="serial">
+    </div>
+    <div class="field">
+      <label for="operator_badge">Your badge (scan, or type — e.g. OP:...)</label>
+      <input type="text" id="operator_badge" name="operator_badge" required>
+    </div>
+    <button type="submit" class="btn">Assign box</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+
+{% endblock %}

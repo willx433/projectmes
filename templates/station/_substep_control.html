@@ -1,0 +1,113 @@
+{#
+  Interactive per-substep control (P3-06/P3-07/P3-12). `sub` is the frozen
+  substep dict (plan_operations.frozen_content), `exec` the matching
+  SubstepExecution row (or None if never touched -- "pending"). The
+  read-only reference content (title/body/measurement-spec table/media) is
+  rendered separately by templates/partials/instruction_steps.html (reused
+  verbatim, per this task's brief); this partial is only the tap targets.
+#}
+{% set status = exec.status if exec else "pending" %}
+<div class="substep-row substep-{{ sub.type }} substep-status-{{ status }}">
+  <span class="tick">
+    {%- if status == "done" -%}&#10003;
+    {%- elif status == "skipped" -%}&#8618;
+    {%- elif status == "failed" -%}&#10007;
+    {%- else -%}{{ sub.seq }}
+    {%- endif -%}
+  </span>
+  <div class="substep-body">
+    <div class="substep-title">
+      {{ sub.title }} <span class="muted">[{{ sub.type }}]</span>
+      {% if not sub.required %}<span class="muted">(optional)</span>{% endif %}
+    </div>
+
+    {% if status in ("done", "skipped") %}
+      <p class="muted">
+        {% if status == "skipped" %}Skipped &mdash; {{ exec.skip_reason or "no reason given" }}
+        {% else %}Done{% endif %}
+        {% if exec and exec.completed_at %} at {{ exec.completed_at.strftime("%H:%M:%S") }}{% endif %}
+      </p>
+
+    {% elif sub.type in ("action", "inspection") %}
+      <form method="post" class="inline-form station-form"
+            action="/station/units/{{ unit.id }}/substeps/{{ current_step.seq }}/{{ sub.seq }}/complete">
+        <input type="hidden" name="request_id" class="request-id-field">
+        <button type="submit" class="btn btn-sm">{{ "Pass" if sub.type == "inspection" else "Mark done" }}</button>
+      </form>
+      {% if sub.type == "inspection" %}
+      <form method="post" class="inline-form station-form"
+            action="/station/units/{{ unit.id }}/substeps/{{ current_step.seq }}/{{ sub.seq }}/fail">
+        <input type="hidden" name="request_id" class="request-id-field">
+        <input type="text" name="notes" placeholder="Why it failed" class="who-input">
+        <button type="submit" class="btn btn-sm btn-danger">Fail</button>
+      </form>
+      {% endif %}
+
+    {% elif sub.type == "measurement" %}
+      {% if status == "failed" and exec and exec.out_of_tolerance and not exec.disposition %}
+        <p class="banner banner-error">
+          Out of tolerance: {{ exec.value_numeric }}{{ (" " ~ sub.measurement_spec.unit) if sub.measurement_spec and sub.measurement_spec.unit else "" }}
+          (nominal {{ sub.measurement_spec.nominal }}, +{{ sub.measurement_spec.tol_plus }}/-{{ sub.measurement_spec.tol_minus }})
+        </p>
+        <form method="post" class="disposition-form station-form"
+              action="/station/units/{{ unit.id }}/substeps/{{ current_step.seq }}/{{ sub.seq }}/disposition">
+          <input type="hidden" name="request_id" class="request-id-field">
+          <select name="disposition" class="who-input">
+            <option value="use_as_is">Use as-is (deviation) &mdash; lead/quality</option>
+            <option value="rework_in_place">Rework here</option>
+            <option value="rework_to_op">Send back &mdash; lead</option>
+            <option value="scrap">Scrap &mdash; lead</option>
+          </select>
+          <input type="text" name="override_badge" placeholder="Lead/quality badge (if required)" class="who-input">
+          <input type="text" name="notes" placeholder="Notes" class="who-input">
+          <button type="submit" class="btn btn-sm btn-danger">Apply disposition</button>
+        </form>
+      {% else %}
+        <button type="button" class="btn btn-sm"
+                onclick="openMeasurementKeypad('{{ unit.id }}', {{ current_step.seq }}, {{ sub.seq }}, {{ (sub.measurement_spec or {})|tojson }})">
+          Enter reading
+        </button>
+      {% endif %}
+
+    {% elif sub.type == "photo" %}
+      <form method="post" enctype="multipart/form-data" class="inline-form station-form"
+            action="/station/units/{{ unit.id }}/substeps/{{ current_step.seq }}/{{ sub.seq }}/photo">
+        <input type="hidden" name="request_id" class="request-id-field">
+        <input type="file" name="file" accept="image/*" capture="environment" required class="photo-input">
+        <button type="submit" class="btn btn-sm">Upload photo</button>
+      </form>
+
+    {% elif sub.type == "material" %}
+      <form method="post" class="material-form station-form"
+            action="/station/units/{{ unit.id }}/substeps/{{ current_step.seq }}/{{ sub.seq }}/material">
+        <input type="hidden" name="request_id" class="request-id-field">
+        <input type="text" name="part_number" placeholder="Part number" required class="who-input">
+        <input type="text" name="lot" placeholder="Lot (optional)" class="who-input">
+        <input type="number" step="any" name="qty_used" placeholder="Qty used" required class="who-input qty-input">
+        <input type="number" step="any" name="qty_scrapped" placeholder="Qty scrapped" class="who-input qty-input">
+        <input type="text" name="uom" placeholder="UoM" class="who-input qty-input">
+        <input type="text" name="substitution_for" placeholder="Substitution for (if any)" class="who-input">
+        <input type="text" name="override_badge" placeholder="Lead badge (if substituting)" class="who-input">
+        <button type="submit" class="btn btn-sm">Record material</button>
+      </form>
+
+    {% elif sub.type == "signoff" %}
+      <form method="post" class="inline-form station-form"
+            action="/station/units/{{ unit.id }}/substeps/{{ current_step.seq }}/{{ sub.seq }}/signoff">
+        <input type="hidden" name="request_id" class="request-id-field">
+        <input type="text" name="override_badge" placeholder="{{ sub.signoff_role or 'lead' }} badge" required class="who-input">
+        <button type="submit" class="btn btn-sm">Sign off</button>
+      </form>
+    {% endif %}
+
+    {% if sub.required and status not in ("done", "skipped") %}
+    <form method="post" class="inline-form skip-form station-form"
+          action="/station/units/{{ unit.id }}/substeps/{{ current_step.seq }}/{{ sub.seq }}/skip">
+      <input type="hidden" name="request_id" class="request-id-field">
+      <input type="text" name="skip_reason" placeholder="Skip reason" class="who-input">
+      <input type="text" name="override_badge" placeholder="Lead badge" required class="who-input">
+      <button type="submit" class="btn btn-sm">Skip (lead)</button>
+    </form>
+    {% endif %}
+  </div>
+</div>

@@ -26,6 +26,11 @@ VALID_VERBS = frozenset(
         "session.paused",
         "session.resumed",
         "session.closed",
+        # P3-08/09 addition: O6 lead-confirm of an auto_closed session is its
+        # own moment (outbox enqueue happens here, not at auto-close) --
+        # distinct from the generic "session.closed" that already fired when
+        # the session auto-closed.
+        "session.confirmed",
         "substep.done",
         "substep.failed",
         "substep.skipped",

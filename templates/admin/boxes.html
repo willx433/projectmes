@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Admin · Boxes — Atlas MES{% endblock %}
+{% block header_title %}Boxes{% endblock %}
+
+{% block main %}
+
+{% if success %}
+<div class="banner banner-warn">{{ success }}</div>
+{% endif %}
+
+<section class="card">
+  <h2>Build boxes</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Box</th><th>Status</th><th>Assigned unit</th><th>Location</th><th>Last scan</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.box.label or row.box.qr_payload }}</td>
+          <td><span class="badge {{ 'badge-active' if row.box.active else 'badge-inactive' }}">{{ "active" if row.box.active else "retired" }}</span></td>
+          <td>
+            {% if row.unit %}
+            unit {{ row.unit.unit_no }}{% if row.unit.serial_number %} · {{ row.unit.serial_number }}{% endif %}
+            {% else %}
+            unassigned
+            {% endif %}
+          </td>
+          <td>{{ row.station.name if row.station else "—" }}</td>
+          <td>{{ row.box.last_scan_at.isoformat() if row.box.last_scan_at else "never" }}</td>
+          <td>
+            {% if row.unit %}
+            <details>
+              <summary class="btn btn-sm">Reassign</summary>
+              <form method="post" action="/admin/boxes/{{ row.box.id }}/reassign" class="step-edit-form">
+                <div class="field">
+                  <label for="new-box-{{ row.box.id }}">New box QR (scan, or type)</label>
+                  <input type="text" id="new-box-{{ row.box.id }}" name="new_box_qr" required>
+                </div>
+                <div class="field">
+                  <label for="lead-badge-{{ row.box.id }}">Lead badge (scan, or type)</label>
+                  <input type="text" id="lead-badge-{{ row.box.id }}" name="lead_badge" required>
+                </div>
+                <div class="field field-inline">
+                  <input type="checkbox" id="retire-{{ row.box.id }}" name="retire_old" value="true">
+                  <label for="retire-{{ row.box.id }}">Retire the old box (lost/damaged)</label>
+                </div>
+                <button type="submit" class="btn btn-sm">Confirm reassign</button>
+              </form>
+            </details>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6">No boxes registered yet — they're created the first time a QR is scanned or typed at kit-up.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p><a href="/admin/print/boxes">Print box label sheet</a></p>
+</section>
+
+{% endblock %}

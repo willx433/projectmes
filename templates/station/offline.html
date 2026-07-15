@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>MES offline</title>
+  <style>
+    body { margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center;
+           background: #c0392b; color: #fff; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .offline-card { text-align: center; padding: 2rem; max-width: 32rem; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    p { font-size: 1.1rem; opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="offline-card">
+    <h1>MES offline</h1>
+    <p>Use the paper build guide for this unit. This screen will return to the
+       station automatically once the network connection is back.</p>
+    <p id="offline-retry-count"></p>
+  </div>
+  <script src="/static/station.js" defer></script>
+</body>
+</html>

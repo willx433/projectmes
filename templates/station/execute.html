@@ -1,0 +1,85 @@
+{% extends "station/base.html" %}
+{% block title %}{{ plan_op.title }} &middot; Atlas MES{% endblock %}
+
+{% block content %}
+<div class="exec-shell">
+  <aside class="step-rail">
+    <ol class="step-rail-list">
+      {% for s in steps %}
+      <li class="step-rail-item {{ 'step-rail-done' if step_status.get(s.seq) == 'done' else 'step-rail-current' if current_step and s.seq == current_step.seq else '' }}">
+        <a href="/station/execute/{{ unit.id }}?step={{ s.seq }}">
+          <span class="tick">{{ "✓" if step_status.get(s.seq) == "done" else s.seq }}</span>
+          {{ s.title }}
+        </a>
+      </li>
+      {% endfor %}
+    </ol>
+  </aside>
+
+  <div class="step-main">
+    {% if current_step %}
+      {% include "partials/instruction_steps.html" %}
+
+      <section class="substep-actions card">
+        <h3>Actions</h3>
+        {% for sub in current_step.substeps %}
+          {% set exec = exec_map.get((current_step.seq, sub.seq)) %}
+          {% include "station/_substep_control.html" %}
+        {% else %}
+          <p class="muted">No substeps in this step.</p>
+        {% endfor %}
+      </section>
+    {% else %}
+      <p class="muted">No steps defined for this operation.</p>
+    {% endif %}
+  </div>
+</div>
+
+<footer class="exec-footer"
+        data-work-session-id="{{ work_session.id }}"
+        data-started-at="{{ work_session.started_at.isoformat() }}">
+  <span class="elapsed" id="elapsed-timer">00:00:00</span>
+
+  <form method="post" class="inline-form station-form" action="/station/sessions/{{ work_session.id }}/pause">
+    <select name="reason_code" class="who-input">
+      <option value="waiting_material">Waiting on material</option>
+      <option value="machine_down">Machine down</option>
+      <option value="break">Break</option>
+      <option value="pulled_to_other_job">Pulled to other job</option>
+      <option value="other">Other</option>
+    </select>
+    <button type="submit" class="btn btn-sm">Pause</button>
+  </form>
+
+  <form method="post" class="inline-form station-form" action="/station/sessions/{{ work_session.id }}/resume">
+    <button type="submit" class="btn btn-sm">Resume</button>
+  </form>
+
+  <form method="post" class="inline-form station-form" action="/station/sessions/{{ work_session.id }}/clock-out"
+        onsubmit="return confirm('Clock out? The unit stays at this station for the next operator.');">
+    <button type="submit" class="btn btn-sm">Clock out</button>
+  </form>
+
+  {#
+    Whole-operation Fail (DD §12.2.3 footer spec) -- the code+narrative+
+    photo+disposition deep flow (rework/send-back/scrap at the operation
+    level) is P3-08's domain (app/domain/failures.py, already landed) and
+    its own station screen (templates/station/fail.html per the plan
+    table), not built at the time this screen was written. Per-substep
+    fail/disposition (inspection Fail, measurement out-of-tolerance
+    disposition) is fully implemented above -- this link is only the
+    footer's escape hatch to the fuller flow once that screen exists;
+    it 404s harmlessly until then (seam, not a broken feature this task
+    owns).
+  #}
+  <a class="btn btn-sm btn-danger" href="/station/fail/{{ unit.id }}?plan_op={{ plan_op.id }}">Fail</a>
+
+  <form class="inline-form finish-form" data-unit-id="{{ unit.id }}" data-plan-op-id="{{ plan_op.id }}">
+    <button type="submit" class="btn {{ 'btn-danger' if remaining == 0 }}" id="finish-btn" {{ 'disabled' if remaining > 0 }}>
+      {% if remaining > 0 %}Finish operation ({{ remaining }} required step(s) remaining){% else %}Finish operation{% endif %}
+    </button>
+  </form>
+</footer>
+
+<div id="measurement-overlay-root"></div>
+{% endblock %}

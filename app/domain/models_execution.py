@@ -38,6 +38,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    false,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -166,7 +167,14 @@ class PlanOperation(Base):
     est_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # DD §6.2 rung (d): unbound routing step -> placeholder op, no
     # instruction set bound; work order flips to blocked_no_instructions.
-    blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # ponytail: server_default=false() not the string "false" -- on SQLite a
+    # server_default string is stored as raw TEXT and decoded via bool(str),
+    # so the string "false" (non-empty) reads back as Python True. Postgres
+    # casts the string fine either way; the portable literal is what
+    # SQLite-backed tests need. (Found via tests/integration/
+    # test_station_flow.py -- see app/domain/models_floor.py's superseded
+    # columns for the fuller note.)
+    blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
 
 
 class PlanPdf(Base):

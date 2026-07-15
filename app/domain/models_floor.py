@@ -46,6 +46,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    false,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -190,7 +191,13 @@ class WorkSession(Base):
     # O6 lead-confirm gate before an auto_closed session's time posts to
     # JB2). Added per that contract -- see module docstring.
     close_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    lead_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # ponytail: server_default=false() (a real SQL boolean literal), not the
+    # string "false" -- on SQLite, a server_default string is stored as TEXT
+    # and read back via bool(str), so "false" (a non-empty string) decodes
+    # as Python True. Postgres casts the string fine either way, but the
+    # portable literal is what SQLite-backed tests need to see the correct
+    # default. See tests/integration/test_station_flow.py's debugging note.
+    lead_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
     jb2_outbox_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("jb2_outbox.id"), nullable=True
     )
@@ -243,7 +250,9 @@ class StepExecution(Base):
     # state-machine.md §5: rework resets K..N to pending but keeps prior
     # executions -- append-only history marks the old row `superseded`
     # rather than deleting/overwriting it. Not in DD's literal column list.
-    superseded: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # ponytail: server_default=false() -- see WorkSession.lead_confirmed's
+    # comment above for why the bare string "false" is wrong on SQLite.
+    superseded: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
 
 
 class SubstepExecution(Base):
@@ -282,7 +291,9 @@ class SubstepExecution(Base):
         Uuid(as_uuid=True), ForeignKey("operators.id"), nullable=True
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    superseded: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # ponytail: server_default=false() -- see WorkSession.lead_confirmed's
+    # comment above for why the bare string "false" is wrong on SQLite.
+    superseded: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
 
 
 class Measurement(Base):

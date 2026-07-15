@@ -1,0 +1,23 @@
+[Unit]
+Description=Atlas MES floor session-lifecycle worker (python -m app.floorworker)
+After=network.target postgresql.service mes-api.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=mes
+Group=mes
+WorkingDirectory=/opt/mes
+EnvironmentFile=/etc/mes/.env
+ExecStart=/opt/mes/venv/bin/python -m app.floorworker
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

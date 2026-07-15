@@ -78,3 +78,50 @@ in `docs/CHANGE_REQUESTS.md`. Cheap tiers never improvise architecture.
   line items; scan is microseconds). Real fix (populate jb2_order_id in the
   extractor) queued as Phase-3-entry hygiene task P3-00. Ceiling named in code.
 - Status: resolved
+
+### ESC-003 — `server_default="false"` boolean columns read back as Python `True` on SQLite
+- Date / Task ID / Agent tier: 2026-07-15 / P3-06/07 / Sonnet
+- Context: `tests/integration/test_station_flow.py`'s finish-gating test
+  (`remaining_required_count`) kept reporting every required substep as
+  still outstanding even after the DB rows showed `status='done'`/`'skipped'`.
+  Root-caused to `StepExecution.superseded` / `SubstepExecution.superseded`
+  (`app/domain/models_floor.py`) never being set explicitly by
+  `get_or_create_step_execution`/`get_or_create_substep_execution` --
+  relying on the column's `server_default="false"` instead. On SQLite,
+  SQLAlchemy compiles a **string** `server_default` as a quoted DDL literal
+  (`DEFAULT 'false'`), which SQLite stores as the raw text `'false'`; read
+  back, SQLAlchemy's boolean decoding does `bool(value)`, and `bool("false")
+  is True` (any non-empty string). So every freshly-inserted row got
+  `superseded=True`, and every `.superseded.is_(False)` filter (mine, and
+  the same pattern in `app/domain/failures.py`/`app/api/operations.py`)
+  silently matched nothing. Confirmed via `sqlite_master` (`DEFAULT 'false'`)
+  and a raw-connection read (`typeof(superseded) = 'text'`, value `'false'`).
+  Postgres is unaffected (casts the string 'false'/'true' to boolean
+  correctly in a boolean column context) -- this is a SQLite-test-double-only
+  bug, not a production bug, but it silently breaks any zero-network test
+  that filters on one of these columns.
+- Scope check: the same `server_default="false"` pattern (not just
+  `"true"`, which happens to decode correctly since `bool("true")` is also
+  `True`) appears on `WorkSession.lead_confirmed`, `PlanOperation.blocked`
+  (`models_execution.py`), and `MappingException.resolved` (`models_jb2.py`)
+  -- none of those files are in this task's scope, and none are on the
+  P3-06/07/12 "don't touch" list (`statemachine.py`/`operations.py`/
+  `sessions.py`/`failures.py`/`outbox`/migrations/`legacy/`).
+- Change made: `server_default="false"` -> `server_default=false()`
+  (the portable SQL boolean-literal construct, `from sqlalchemy import
+  false`) on all five columns across `models_floor.py`, `models_execution.py`,
+  `models_jb2.py`. This changes nothing about the Postgres migration DDL
+  (untouched, per the "don't touch migrations" rule) -- Postgres already
+  casts the string correctly; the fix only corrects what
+  `Base.metadata.create_all()` emits for SQLite-backed tests. Full suite
+  (269 tests incl. this task's new `test_station_flow.py`) green after the
+  change; no other test's assertions changed behavior (everything that
+  passed before still passes -- this was a false-negative-masking bug, not
+  a case anyone was asserting the wrong thing on purpose).
+- BLOCKED files: none -- implemented, not blocked. Flagging per the "any
+  deviation gets logged" convention since it touches three files outside
+  this task's own file list (P3-06/07/12: `templates/station/*`,
+  `app/api/station.py`, `app/api/substeps.py`, `app/domain/substeps.py`).
+- Fable resolution: pending review.
+- Status: open (fix applied and tested; awaiting Fable sign-off on touching
+  files outside this task's literal scope)

@@ -27,6 +27,7 @@ from sqlalchemy import (
     Numeric,
     Text,
     Uuid,
+    false,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -230,7 +231,10 @@ class MappingException(Base):
     kind: Mapped[str] = mapped_column(Text, nullable=False)
     value: Mapped[str] = mapped_column(Text, nullable=False)
     context: Mapped[dict | None] = mapped_column(_JSONB, nullable=True)
-    resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # ponytail: server_default=false() not the string "false" -- see
+    # app/domain/models_floor.py's superseded columns for why the bare
+    # string reads back as Python True on SQLite.
+    resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
 
 

@@ -173,3 +173,107 @@ tr.row-bad { background: #fdecea; }
   .muted { color: #999; }
   .link-row a { color: #6db8d1; }
 }
+
+/* -------------------------------------------------------------------------
+   Station kiosk (P3-05/06/07/12) -- Android tablets, portrait + landscape,
+   768-1280px, 48px+ targets, no hover-dependent interactions, no
+   horizontal scroll anywhere except .table-scroll (already scoped above).
+   ------------------------------------------------------------------------- */
+
+.kiosk-body { min-height: 100vh; }
+
+.offline-banner {
+  position: sticky; top: 0; z-index: 20;
+  background: #c0392b; color: #fff; padding: 0.6rem 1rem; text-align: center; font-weight: 600;
+}
+
+.scan-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+  padding: 0.75rem 1rem; background: #1f2937; color: #fff;
+}
+.scan-bar .station-name { font-weight: 700; }
+.scan-bar .operator-name { opacity: 0.85; }
+.scan-bar .scan-label { position: absolute; left: -9999px; } /* visually hidden, kept for a11y */
+.scan-hidden-input { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.scan-manual-input {
+  flex: 1 1 14rem; min-height: 48px; font-size: 1rem; padding: 0.5rem 0.75rem;
+  border-radius: 6px; border: 1px solid #4b5563;
+}
+.scan-banner { flex-basis: 100%; font-weight: 600; }
+.scan-banner-error { color: #ffb4a8; }
+
+.kiosk-main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
+
+.unit-card-firstpass { border-left: 6px solid #1f6f8b; }
+.unit-card-rework { border-left: 6px solid #c0392b; }
+.unit-facts td { padding: 0.25rem 0.75rem 0.25rem 0; border: none; white-space: normal; }
+
+/* execution screen: rail + main pane, wraps to stacked on narrow portrait
+   (no horizontal scroll at any Android-tablet width). */
+.exec-shell { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+.step-rail { flex: 1 1 220px; max-width: 280px; }
+.step-main { flex: 3 1 420px; min-width: 280px; }
+
+.step-rail-list { list-style: none; margin: 0; padding: 0; }
+.step-rail-item a {
+  display: flex; align-items: center; gap: 0.5rem; min-height: 48px;
+  padding: 0.4rem 0.6rem; border-radius: 6px; text-decoration: none; color: inherit;
+}
+.step-rail-item .tick {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.6rem; height: 1.6rem; border-radius: 50%; background: #eef3f6;
+  font-size: 0.85rem; flex-shrink: 0;
+}
+.step-rail-current a { background: #eef3f6; font-weight: 700; }
+.step-rail-done .tick { background: #1b7a3d; color: #fff; }
+
+.substep-actions { margin-top: 1rem; }
+.substep-row {
+  border-top: 1px solid #e5e7eb; padding: 0.75rem 0; display: flex; gap: 0.6rem; align-items: flex-start;
+}
+.substep-row .tick {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.8rem; height: 1.8rem; border-radius: 50%; background: #eef3f6; flex-shrink: 0;
+}
+.substep-status-done .tick { background: #1b7a3d; color: #fff; }
+.substep-status-failed .tick { background: #c0392b; color: #fff; }
+.substep-status-skipped .tick { background: #8a6d1a; color: #fff; }
+.substep-body { flex: 1; min-width: 0; }
+.substep-title { font-weight: 600; margin-bottom: 0.4rem; }
+.substep-body form { margin-top: 0.4rem; flex-wrap: wrap; }
+.qty-input { max-width: 6rem; }
+
+.exec-footer {
+  position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem;
+  padding: 0.75rem 1rem; margin-top: 1rem; background: #1f2937; color: #fff;
+}
+.exec-footer .elapsed { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.exec-footer select, .exec-footer .who-input { background: #fff; }
+.exec-footer button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* measurement keypad overlay (P3-07, DD §12.2.4) */
+.keypad-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 1000;
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+}
+.keypad-card { background: #fff; border-radius: 10px; padding: 1.25rem; width: 100%; max-width: 22rem; }
+.keypad-display {
+  font-size: 2rem; font-weight: 700; text-align: center; padding: 0.75rem;
+  border-radius: 8px; background: #f4f5f7; margin: 0.75rem 0; min-height: 3rem;
+  font-variant-numeric: tabular-nums;
+}
+.keypad-display.keypad-ok { background: #e3f6e8; color: #1b7a3d; }
+.keypad-display.keypad-bad { background: #fdecea; color: #c0392b; }
+.keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.keypad-key { font-size: 1.3rem; }
+.keypad-actions { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 1rem; }
+
+@media (prefers-color-scheme: dark) {
+  .scan-manual-input { background: #14161a; color: #e8e8e8; border-color: #2c3038; }
+  .step-rail-item .tick { background: #2c3038; }
+  .step-rail-current a { background: #2c3038; }
+  .substep-row { border-top-color: #2c3038; }
+  .substep-row .tick { background: #2c3038; }
+  .keypad-card { background: #1e2126; color: #e8e8e8; }
+  .keypad-display { background: #14161a; }
+}

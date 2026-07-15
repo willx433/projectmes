@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>{% block title %}Station &middot; Atlas MES{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  <script src="/static/vendor/alpine.min.js" defer></script>
+  <script src="/static/station.js" defer></script>
+</head>
+<body class="kiosk-body" hx-boost="true">
+  <div id="offline-banner" class="offline-banner" hidden>MES offline &mdash; use the paper build guide. Retrying&hellip;</div>
+
+  {% block scanbar %}
+  {% if station %}
+  <form id="scan-form" class="scan-bar" autocomplete="off">
+    <span class="station-name">{{ station.name }}</span>
+    {% if operator %}<span class="operator-name">{{ operator.display_name }}</span>{% endif %}
+    <label class="scan-label" for="scan-hidden-input">Scan or type a badge/box code</label>
+    <input id="scan-hidden-input" name="scan_hidden" type="text" class="scan-hidden-input" autofocus inputmode="text">
+    <input id="scan-manual-input" name="scan_manual" type="text" class="scan-manual-input" placeholder="Manual entry (badge or box code)">
+    <button type="submit" class="btn" id="scan-submit-btn">Submit</button>
+    <span id="scan-banner" class="scan-banner" role="status"></span>
+  </form>
+  {% endif %}
+  {% endblock %}
+
+  <main class="kiosk-main">
+    {% if error %}<div class="banner banner-error">{{ error }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

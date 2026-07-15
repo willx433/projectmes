@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Enroll station &middot; Atlas MES</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <main class="page">
+    <section class="card">
+      <h2>Enroll this tablet</h2>
+      <p class="muted">
+        One-time setup (CR-009 -- hardware/kiosk provisioning is manual for now).
+        Enter the kiosk token shown when this station was enrolled at
+        <code>/admin/stations</code>. The tablet stays on this screen after
+        submit -- point the kiosk browser at <code>/station</code>.
+      </p>
+      {% if error %}<div class="banner banner-error">{{ error }}</div>{% endif %}
+      <form method="post" action="/station/enroll">
+        <div class="field">
+          <label for="token">Station kiosk token</label>
+          <input type="text" id="token" name="token" value="{{ prefill_token }}" required autofocus>
+        </div>
+        <button type="submit" class="btn">Enroll this tablet</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

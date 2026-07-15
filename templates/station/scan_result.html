@@ -1,0 +1,38 @@
+{% extends "station/base.html" %}
+{% block title %}Unit #{{ unit.unit_no }} &middot; Atlas MES{% endblock %}
+
+{% block content %}
+<section class="card unit-card {{ 'unit-card-rework' if not unit.first_pass else 'unit-card-firstpass' }}">
+  <h2>
+    {{ product.name if product else "Unknown product" }} &mdash; Unit #{{ unit.unit_no }}
+    {% if unit.first_pass %}
+      <span class="badge badge-active">first pass</span>
+    {% else %}
+      <span class="badge badge-in_review">rework &times;{{ unit.rework_count }}</span>
+    {% endif %}
+  </h2>
+  <table class="unit-facts">
+    <tr><td class="muted">Serial</td><td>{{ unit.serial_number or "not yet entered" }}</td></tr>
+    <tr><td class="muted">Order</td><td>{{ line_item.jb2_id if line_item else "—" }} ({{ line_item.part_number if line_item else "—" }})</td></tr>
+    <tr><td class="muted">Due</td><td>{{ work_order.due_date.isoformat() if work_order and work_order.due_date else "—" }}</td></tr>
+    <tr><td class="muted">Status</td><td>{{ unit.status }}</td></tr>
+  </table>
+
+  {% if plan_op %}
+  <h3>{{ plan_op.title }}</h3>
+  <p class="muted">Progress: step {{ done_steps }} / {{ total_steps }} complete</p>
+
+  {% if work_session %}
+  <a class="btn" href="/station/execute/{{ unit.id }}">
+    {{ "Resume operation" if work_session.started_at else "Start operation" }}
+  </a>
+  {% else %}
+  <p class="banner banner-warn">No open session yet -- scan the box at this station to start.</p>
+  {% endif %}
+  {% else %}
+  <p class="banner banner-warn">This unit has no active operation (done, scrapped, or awaiting a plan).</p>
+  {% endif %}
+</section>
+
+<p class="link-row"><a href="/station">&larr; Back to station</a></p>
+{% endblock %}

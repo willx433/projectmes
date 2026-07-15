@@ -1,0 +1,23 @@
+{% extends "station/base.html" %}
+{% block title %}Wrong station &middot; Atlas MES{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h2 class="banner banner-error">Wrong station</h2>
+  <p>This box's next operation is <strong>{{ operation_title }}</strong>
+     at work center <strong>{{ expected_work_center }}</strong>.</p>
+  <p class="muted">Move the box to the destination station above, or a lead may override
+     and accept it here now (O2).</p>
+
+  <form method="post" action="/scan" id="override-form">
+    <input type="hidden" name="payload" value="{{ payload }}">
+    <div class="field">
+      <label for="override_badge">Lead badge (scan or type)</label>
+      <input type="text" id="override_badge" name="override_badge" class="scan-manual-input" required>
+    </div>
+    <button type="submit" class="btn btn-danger" id="override-submit-btn">Override &amp; accept here</button>
+  </form>
+</section>
+
+<p class="link-row"><a href="/station">&larr; Back to station</a></p>
+{% endblock %}

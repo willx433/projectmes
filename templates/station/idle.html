@@ -1,0 +1,20 @@
+{% extends "station/base.html" %}
+{% block title %}{{ station.name }} &middot; Atlas MES{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h2>{{ station.name }}</h2>
+  {% if station.work_center_code %}<p class="muted">Work center {{ station.work_center_code }}</p>{% endif %}
+  {% if operator %}
+    <p>Badged in as <strong>{{ operator.display_name }}</strong>.
+      <form method="post" action="/auth/logout" class="inline-form"><button type="submit" class="btn btn-sm">Log out</button></form>
+    </p>
+  {% else %}
+    <p class="banner banner-warn">Scan your badge to begin.</p>
+  {% endif %}
+</section>
+
+<section class="card" id="queue-section" hx-get="/station/queue" hx-trigger="every 10s" hx-swap="innerHTML">
+  {% include "station/_queue.html" %}
+</section>
+{% endblock %}

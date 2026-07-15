@@ -1,0 +1,38 @@
+{#
+  Queue partial (P3-05): units inbound to or at this station, derived
+  (no separate queue table) -- see app/api/station.py::_queue_rows.
+  Rendered both on first load (idle.html) and on the 10s htmx poll
+  (GET /station/queue) -- WebSocket push is P4-01.
+#}
+<h2>Queue ({{ queue|length }})</h2>
+{% if not queue %}
+  <p class="muted">Nothing inbound or waiting at this station.</p>
+{% else %}
+<div class="table-scroll">
+  <table>
+    <thead>
+      <tr><th>Unit</th><th>Product</th><th>Serial</th><th>Status</th><th>Due</th><th>Operation</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for row in queue %}
+      <tr class="{{ 'row-bad' if not row.unit.first_pass }}">
+        <td>#{{ row.unit.unit_no }}</td>
+        <td>{{ row.product.name if row.product else "—" }}</td>
+        <td>{{ row.unit.serial_number or "—" }}</td>
+        <td>
+          {{ row.unit.status }}
+          {% if not row.unit.first_pass %}<span class="badge badge-in_review">rework &times;{{ row.unit.rework_count }}</span>{% endif %}
+        </td>
+        <td>{{ row.work_order.due_date.isoformat() if row.work_order and row.work_order.due_date else "—" }}</td>
+        <td>{{ row.plan_op.title }}</td>
+        <td>
+          {% if row.unit.status != "in_transit" %}
+          <a class="btn btn-sm" href="/station/scan-result/{{ row.unit.id }}">Open</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}

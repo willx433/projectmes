@@ -5,7 +5,15 @@ JobBoss2__ApiBaseUrl, JobBoss2__AuthBaseUrl, JobBoss2__ClientId,
 JobBoss2__ClientSecret, DATABASE_URL, MES_SECRET_KEY, ARTIFACT_DIR,
 LIBRARY_REQUIRE_APPROVER (P2-03, DD §7.2 two-person publish gate; default
 false = single-approver per plan §9), STATION_SESSION_IDLE_MIN (P3-03, DD
-§14 "expires after configurable idle, e.g. 10 min"; default 10).
+§14 "expires after configurable idle, e.g. 10 min"; default 10 -- P3-08/09
+reuses this same knob as the no-substep-activity threshold before a
+WorkSession auto-pauses, docs/state-machine.md §6),
+KITUP_REQUIRES_LEAD (P3-11, docs/state-machine.md §8: "kit-up allowed by
+operator role (config KITUP_REQUIRES_LEAD, default false)"),
+SESSION_AUTO_CLOSE_MIN (P3-09, §17.8 "auto-close after ~60 min paused";
+default 60), REQUIRE_SERIAL_BEFORE_DONE (P3-10, DD §6.8 "serial must be
+present before `done`"; default true, global for v1 -- per-product
+override deferred, see P3-10 task report).
 """
 from __future__ import annotations
 
@@ -42,6 +50,9 @@ class Config:
     sync_backfill_days: int
     library_require_approver: bool
     station_session_idle_min: int
+    kitup_requires_lead: bool
+    session_auto_close_min: int
+    require_serial_before_done: bool
 
     def validate(self, required: list[str]) -> None:
         """Raise if any of the given attribute names are unset. Endpoints/workers
@@ -74,6 +85,18 @@ def load_config(env_path: Path | None = None) -> Config:
     )
     raw_idle_min = get("STATION_SESSION_IDLE_MIN")
     station_session_idle_min = int(raw_idle_min) if raw_idle_min else 10
+    kitup_requires_lead = (get("KITUP_REQUIRES_LEAD") or "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    raw_auto_close_min = get("SESSION_AUTO_CLOSE_MIN")
+    session_auto_close_min = int(raw_auto_close_min) if raw_auto_close_min else 60
+    require_serial_before_done = (get("REQUIRE_SERIAL_BEFORE_DONE") or "true").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
     return Config(
         jobboss2_api_base_url=get("JobBoss2__ApiBaseUrl"),
@@ -88,6 +111,9 @@ def load_config(env_path: Path | None = None) -> Config:
         sync_backfill_days=sync_backfill_days,
         library_require_approver=library_require_approver,
         station_session_idle_min=station_session_idle_min,
+        kitup_requires_lead=kitup_requires_lead,
+        session_auto_close_min=session_auto_close_min,
+        require_serial_before_done=require_serial_before_done,
     )
 
 

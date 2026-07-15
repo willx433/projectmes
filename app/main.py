@@ -13,12 +13,16 @@ from fastapi.staticfiles import StaticFiles
 import app.domain.models_execution  # noqa: F401,E402
 import app.domain.models_floor  # noqa: F401,E402 -- P3-03: operators/stations/auth_events
 from app.api.auth import router as auth_router
+from app.api.boxes import router as boxes_router
 from app.api.display import router as display_router
 from app.api.health import router as health_router
 from app.api.library import router as library_router
 from app.api.media import router as media_router
+from app.api.operations import router as operations_router
 from app.api.products import router as products_router
 from app.api.scan import router as scan_router
+from app.api.station import router as station_router
+from app.api.substeps import router as substeps_router
 from app.api.workorders import router as workorders_router
 from app.config import REPO_ROOT
 from app.logging import configure_logging
@@ -54,6 +58,10 @@ def create_app() -> FastAPI:
     app.include_router(workorders_router)
     app.include_router(auth_router)
     app.include_router(scan_router)
+    app.include_router(operations_router)
+    app.include_router(boxes_router)
+    app.include_router(station_router)
+    app.include_router(substeps_router)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
