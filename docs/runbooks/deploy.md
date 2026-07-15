@@ -29,6 +29,12 @@ sudo -u postgres psql -c "CREATE DATABASE mes OWNER mes;"
 Replace `CHANGE_ME` with a real password and use the same value in
 `/etc/mes/.env`'s `DATABASE_URL` below.
 
+**Post-pilot hardening item (P3-02):** `events` (migration 0007) is meant to be
+append-only at the DB level, not just by app convention — once a low-privilege
+runtime role exists separate from the migration-owner role, `REVOKE UPDATE,
+DELETE ON events FROM <app_role>` (grant only `SELECT, INSERT`). Not done here
+because it needs that role split, which this runbook doesn't set up yet.
+
 ## 3. `mes` service user
 
 ```bash

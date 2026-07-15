@@ -325,15 +325,44 @@ def _orders_extract(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _order_line_items_extract(record: dict[str, Any]) -> dict[str, Any]:
-    return {
-        # jb2_order_id cross-resource FK resolution lands with P1-06/07.
-        "jb2_order_id": None,
-        "part_number": record.get("partNumber"),
-        "description": record.get("partDescription"),
-        "qty": record.get("quantityToMake"),
-        "due_date": _date_only(record.get("dueDate")),
-    }
+def _order_line_items_extract_factory(
+    session: Session,
+) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    """P3-00: resolve jb2_order_id via the parent orders mirror's
+    order_number (populated by _orders_extract above). REGISTRY runs
+    "orders" ahead of "order-line-items" every cycle, so within a cycle the
+    parent row already exists; if it's genuinely absent (this line item's
+    order hasn't been mirrored yet), leave the FK NULL and log rather than
+    crash -- the next cycle that upserts this line item (unchanged rows
+    are no-ops, so this only re-resolves on an actual change) will pick it
+    up once the order lands."""
+
+    def extract(record: dict[str, Any]) -> dict[str, Any]:
+        order_number = record.get("orderNumber")
+        jb2_order_id = None
+        if order_number is not None:
+            order = session.scalars(
+                select(JB2Order).where(JB2Order.order_number == str(order_number))
+            ).one_or_none()
+            if order is not None:
+                jb2_order_id = order.id
+            else:
+                logger.debug(
+                    "line_item_order_not_mirrored",
+                    extra={
+                        "sync_resource": "order-line-items",
+                        "jb2_order_number": order_number,
+                    },
+                )
+        return {
+            "jb2_order_id": jb2_order_id,
+            "part_number": record.get("partNumber"),
+            "description": record.get("partDescription"),
+            "qty": record.get("quantityToMake"),
+            "due_date": _date_only(record.get("dueDate")),
+        }
+
+    return extract
 
 
 def _date_only(value: str | None) -> date | None:
@@ -419,6 +448,11 @@ class ResourceDef:
     # lastModDate at all -- skip the filter and do a windowed full pull,
     # relying on upsert_records' hash diff to no-op unchanged rows.
     supports_last_mod: bool = True
+    # P3-00: order-line-items' extract needs the firing cycle's own session
+    # (to resolve jb2_order_id) -- when True, `extract` is actually a
+    # factory Callable[[Session], Callable[[dict], dict]] instead of a
+    # plain extractor, and run_cycle calls it with `session` first.
+    needs_session: bool = False
 
 
 REGISTRY: list[ResourceDef] = [
@@ -442,7 +476,8 @@ REGISTRY: list[ResourceDef] = [
                 "partDescription", "quantityToMake", "dueDate", "status",
                 "uniqueID", "lastModDate"],
         model=JB2OrderLineItem,
-        extract=_order_line_items_extract,
+        extract=_order_line_items_extract_factory,
+        needs_session=True,
     ),
     # -- P1-08 masters, 15 min cadence -----------------------------------
     ResourceDef(
@@ -568,13 +603,18 @@ def run_cycle(
                 keyed_page = page
                 effective_key_field = resource_def.key_field
 
+            extract_fn = (
+                resource_def.extract(session)
+                if resource_def.needs_session
+                else resource_def.extract
+            )
             fetched, changed = upsert_records(
                 session,
                 resource_def.model,
                 keyed_page,
                 key_field=effective_key_field,
                 key_attr=resource_def.key_attr,
-                extract=resource_def.extract,
+                extract=extract_fn,
                 now=now,
             )
             fetched_total += fetched

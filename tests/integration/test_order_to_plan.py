@@ -104,12 +104,13 @@ def _seed_line_item(
     qty: int,
     due_date: date | None = None,
     order_number: str | None = None,
+    jb2_order_id: uuid.UUID | None = None,
 ) -> JB2OrderLineItem:
     payload = {"orderNumber": order_number} if order_number else {}
     li = JB2OrderLineItem(
         id=uuid.uuid4(),
         jb2_id=jb2_id,
-        jb2_order_id=None,  # cross-resource FK resolution is an unfixed Phase 1 gap
+        jb2_order_id=jb2_order_id,
         part_number=part_number,
         description=part_number,
         qty=qty,
@@ -528,9 +529,10 @@ def test_order_closed_hook_cancels_work_orders_for_the_order(session):
     _published_set_with_conditional_substep(session, product)
     session.commit()
 
+    order = _seed_order(session, jb2_id="order-10200", order_number="10200")
     li = _seed_line_item(
         session, jb2_id="li-order-closed", part_number="APOLLO-9-BLK", qty=1,
-        order_number="10200",
+        order_number="10200", jb2_order_id=order.id,
     )
     _seed_routing(session, line_item_id=li.id, seq=10, operation_code="OP10")
     session.commit()

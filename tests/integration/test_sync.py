@@ -13,6 +13,7 @@ over ordinary sync httpx.
 from __future__ import annotations
 
 import asyncio
+import uuid
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
@@ -480,6 +481,73 @@ def test_new_line_item_triggers_routing_and_materials_fetch_and_is_idempotent(
 
         assert session.query(JB2OrderRouting).count() == 1
         assert session.query(JB2OrderMaterial).count() == 2
+
+
+# -- P3-00: jb2_order_line_items.jb2_order_id FK resolution ------------------
+
+def test_line_item_gets_jb2_order_id_from_orders_mirror(jb2_client, db_session_factory):
+    client, state = jb2_client
+    state["orders"] = [_order(30, "10008", "Open", "2023-10-25T14:30:13Z")]
+    state["order-line-items"] = [_line_item(507, "10008-01", "2023-10-25T14:30:13Z")]
+
+    with db_session_factory() as session:
+        # REGISTRY order (orders before order-line-items) means the parent
+        # row already exists by the time the line item is upserted.
+        run_cycle(session, client, ORDERS_DEF)
+        run_cycle(session, client, LINE_ITEMS_DEF)
+        session.commit()
+
+        order = session.query(JB2Order).filter_by(order_number="10008").one()
+        line_item = session.query(JB2OrderLineItem).filter_by(jb2_id="507").one()
+        assert line_item.jb2_order_id == order.id
+
+
+def test_line_item_order_not_yet_mirrored_leaves_fk_null(jb2_client, db_session_factory):
+    client, state = jb2_client
+    # Orders cycle never ran -- no parent order row exists for "10008".
+    state["order-line-items"] = [_line_item(508, "10009-01", "2023-10-25T14:30:13Z")]
+
+    with db_session_factory() as session:
+        run = run_cycle(session, client, LINE_ITEMS_DEF)
+        session.commit()
+
+        assert run.error is None  # absent parent never crashes the cycle
+        line_item = session.query(JB2OrderLineItem).filter_by(jb2_id="508").one()
+        assert line_item.jb2_order_id is None
+
+
+def test_order_closed_cascades_to_work_order_via_fk(jb2_client, db_session_factory):
+    from app.domain.models_execution import WorkOrder
+    from app.sync import hooks as sync_hooks
+
+    client, state = jb2_client
+    state["orders"] = [_order(30, "10008", "Open", "2023-10-25T14:30:13Z")]
+    state["order-line-items"] = [_line_item(507, "10008-01", "2023-10-25T14:30:13Z")]
+
+    with db_session_factory() as session:
+        run_cycle(session, client, ORDERS_DEF)
+        run_cycle(session, client, LINE_ITEMS_DEF)
+        session.commit()
+
+        line_item = session.query(JB2OrderLineItem).filter_by(jb2_id="507").one()
+        assert line_item.jb2_order_id is not None  # P3-00: FK populated
+
+        # ponytail: WorkOrder.product_id FKs to products, but sqlite here
+        # doesn't enforce FK constraints -- a bare row proves the
+        # order_closed -> indexed FK -> work order cascade without standing
+        # up the full product/library fixtures (test_order_to_plan.py
+        # already covers the end-to-end domain path).
+        work_order = WorkOrder(
+            jb2_line_item_id=line_item.id, product_id=uuid.uuid4(), qty=1, status="ready",
+        )
+        session.add(work_order)
+        session.commit()
+
+        sync_hooks._handle_order_closed(session, {"orderNumber": "10008", "uniqueID": 30})
+        session.commit()
+
+        session.refresh(work_order)
+        assert work_order.status == "cancelled"
 
 
 # -- P1-08: masters (parts, work-centers, operation-codes, employees, --------

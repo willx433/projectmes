@@ -19,6 +19,7 @@ from alembic.config import Config
 
 from app.domain import (
     models_execution,  # noqa: F401  (registers Execution tables on Base.metadata)
+    models_floor,  # noqa: F401  (registers Floor tables on Base.metadata)
     models_library,  # noqa: F401  (registers Library tables on Base.metadata)
 )
 from app.domain.models_jb2 import Base
@@ -51,6 +52,24 @@ EXPECTED_TABLES = {
     "units",
     "plan_operations",
     "plan_pdfs",
+    "operators",
+    "stations",
+    "build_boxes",
+    "box_assignments",
+    "work_sessions",
+    "session_pauses",
+    "step_executions",
+    "substep_executions",
+    "measurements",
+    "attachments",
+    "material_records",
+    "failures",
+    "scrap_events",
+    "scans",
+    "transits",
+    "events",
+    "auth_events",
+    "request_dedup",
 }
 
 _CREATE_TABLE_RE = re.compile(r"CREATE TABLE (\w+) \((.*?)\n\);", re.DOTALL)

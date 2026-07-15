@@ -14,16 +14,11 @@ back together, same guarantee the outbox gives its own writes (DD §4.5).
 `order_line_item_new` / `order_line_item_changed` -> `workorders
 .create_from_line_item` (idempotent: creates or reconciles).
 
-`order_closed` fires with the raw JB2 *order* record, not a line item, and
-`jb2_order_line_items.jb2_order_id` is never populated (see
-app/sync/worker.py's `_order_line_items_extract` -- that cross-resource FK
-resolution was explicitly left out of scope in Phase 1, P1-06/07). Standing
-resolution here: match this order's `orderNumber` against the raw JB2
-`orderNumber` each line-item mirror row still carries in its own `payload`
-jsonb (every mirror row keeps the full raw record, see MirrorMixin). This is
-a full table scan over `jb2_order_line_items` -- fine at MES/single-shop
-scale; flagged as a judgment call rather than adding a real FK, since fixing
-the FK gap properly is a Phase 1 concern out of this task's scope.
+`order_closed` fires with the raw JB2 *order* record, not a line item.
+`jb2_order_line_items.jb2_order_id` is populated at upsert time (P3-00, see
+app/sync/worker.py's `_order_line_items_extract_factory`), so cascading a
+closed order to its work orders is an indexed FK lookup: resolve the order
+by `orderNumber`, then select line items by `jb2_order_id`.
 """
 from __future__ import annotations
 
@@ -35,7 +30,7 @@ from sqlalchemy.orm import Session
 
 from app.domain import workorders
 from app.domain.models_execution import WorkOrder
-from app.domain.models_jb2 import JB2OrderLineItem
+from app.domain.models_jb2 import JB2Order, JB2OrderLineItem
 from app.sync.worker import register_order_hook
 
 logger = logging.getLogger("app.sync.hooks")
@@ -59,12 +54,22 @@ def _handle_order_closed(session: Session, record: dict[str, Any]) -> None:
     order_number = record.get("orderNumber")
     if not order_number:
         return
-    # ponytail: full scan, see module docstring -- jb2_order_id resolution
-    # is an unfixed Phase 1 gap, not this task's to close.
-    line_items = session.scalars(select(JB2OrderLineItem)).all()
+    order = session.scalars(
+        select(JB2Order).where(JB2Order.order_number == str(order_number))
+    ).one_or_none()
+    if order is None:
+        # Shouldn't happen -- the order that just fired order_closed was
+        # upserted into the mirror earlier in this same cycle/transaction
+        # (see app/sync/worker.py's _emit_order_events) -- but never let a
+        # surprise here crash sync.
+        logger.warning(
+            "hook_order_closed_order_not_mirrored", extra={"jb2_order_number": order_number}
+        )
+        return
+    line_items = session.scalars(
+        select(JB2OrderLineItem).where(JB2OrderLineItem.jb2_order_id == order.id)
+    ).all()
     for line_item in line_items:
-        if line_item.payload.get("orderNumber") != order_number:
-            continue
         work_order = session.scalars(
             select(WorkOrder).where(WorkOrder.jb2_line_item_id == line_item.id)
         ).one_or_none()
