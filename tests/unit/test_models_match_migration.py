@@ -17,7 +17,10 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
-from app.domain import models_library  # noqa: F401  (registers Library tables on Base.metadata)
+from app.domain import (
+    models_execution,  # noqa: F401  (registers Execution tables on Base.metadata)
+    models_library,  # noqa: F401  (registers Library tables on Base.metadata)
+)
 from app.domain.models_jb2 import Base
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -44,6 +47,10 @@ EXPECTED_TABLES = {
     "steps",
     "substeps",
     "failure_codes",
+    "work_orders",
+    "units",
+    "plan_operations",
+    "plan_pdfs",
 }
 
 _CREATE_TABLE_RE = re.compile(r"CREATE TABLE (\w+) \((.*?)\n\);", re.DOTALL)
@@ -108,10 +115,14 @@ def test_model_columns_match_migration_columns():
         )
 
 
-def test_outbox_work_order_id_has_no_fk_yet():
-    """Contract requirement: work_order_id is a plain nullable uuid column
-    with no FK target until migration 0003 (work_orders is Phase 2)."""
+def test_outbox_work_order_id_has_fk_to_work_orders():
+    """Contract requirement (P2-10, migration 0006): work_order_id is a
+    nullable uuid column with a real FK to work_orders.id now that
+    work_orders exists -- the FK promised (but deferred) since migration
+    0001 lands here."""
     outbox = Base.metadata.tables["jb2_outbox"]
     col = outbox.columns["work_order_id"]
     assert col.nullable is True
-    assert len(col.foreign_keys) == 0
+    assert len(col.foreign_keys) == 1
+    fk = next(iter(col.foreign_keys))
+    assert fk.target_fullname == "work_orders.id"

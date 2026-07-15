@@ -23,6 +23,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.config import config, load_config
+
+# registers work_orders on Base.metadata -- jb2_outbox.work_order_id carries
+# a real FK to it since migration 0006/P2-10.
+from app.domain import models_execution  # noqa: F401
 from app.domain.models_jb2 import (
     Base,
     JB2Document,
@@ -359,7 +363,7 @@ def captured_events():
     tests, so it can't be left registered after this test ends."""
     events: list[tuple[str, dict]] = []
 
-    def hook(event, record):
+    def hook(event, record, session):
         events.append((event, record))
 
     worker_module.register_order_hook(hook)

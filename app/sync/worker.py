@@ -66,7 +66,20 @@ EPOCH_FLOOR = checkpoints.EPOCH_FLOOR
 # Phase 2 (work-order creation) subscribes here to react to
 # order_new/order_changed/order_closed/order_line_item_new/
 # order_line_item_changed events -- no-op by default (nothing registered).
-OrderHook = Callable[[str, dict[str, Any]], None]
+#
+# P2-10: the hook receives the *same* `session` `run_cycle` is using, still
+# open and uncommitted at fire time (events fire mid-cycle, before the
+# caller's `session.commit()`) -- a hook that opened its own session/
+# connection instead couldn't see the mirror row that was just upserted
+# (real DBs give a separate connection READ COMMITTED isolation; sqlite's
+# StaticPool-shared-connection test setups can paper over this, but
+# Postgres would silently no-op the hook every time). Passing `session`
+# through means the hook's writes (e.g. a new WorkOrder) ride in the exact
+# same transaction as the mirror upsert -- consistent with the outbox's own
+# "same DB transaction" guarantee (DD §4.5) -- and any exception the hook
+# raises is caught by `run_cycle`'s existing per-resource isolation (rolls
+# back this cycle's upsert + hook work together, retried next poll).
+OrderHook = Callable[[str, dict[str, Any], Session], None]
 _order_hooks: list[OrderHook] = []
 
 # DD §4.3 rule 4: an order in one of these JB2 statuses (case-insensitive)
@@ -75,14 +88,16 @@ CLOSED_STATUSES = {"closed", "canceled", "cancelled"}
 
 
 def register_order_hook(hook: OrderHook) -> None:
-    """Register a callback invoked as `hook(event, raw_record)` for every
-    order/order-line-item classification event. Additive -- callers never
-    need to unregister in production (Phase 2 registers once at startup);
-    tests that register a hook should pop it from `_order_hooks` after."""
+    """Register a callback invoked as `hook(event, raw_record, session)` for
+    every order/order-line-item classification event -- `session` is the
+    same one the firing sync cycle is using (see OrderHook's docstring
+    above for why). Additive -- callers never need to unregister in
+    production (Phase 2 registers once at startup); tests that register a
+    hook should pop it from `_order_hooks` after."""
     _order_hooks.append(hook)
 
 
-def _fire_order_event(event: str, record: dict[str, Any]) -> None:
+def _fire_order_event(event: str, record: dict[str, Any], session: Session) -> None:
     logger.info(
         event,
         extra={
@@ -92,7 +107,7 @@ def _fire_order_event(event: str, record: dict[str, Any]) -> None:
         },
     )
     for hook in _order_hooks:
-        hook(event, record)
+        hook(event, record, session)
 
 
 def _status_is_closed(status: Any) -> bool:
@@ -122,17 +137,19 @@ def _diff_page(
     return classification
 
 
-def _emit_order_events(page: list[dict[str, Any]], classification: dict[str, str]) -> None:
+def _emit_order_events(
+    session: Session, page: list[dict[str, Any]], classification: dict[str, str]
+) -> None:
     for record in page:
         kind = classification.get(str(record.get("uniqueID")))
         if kind is None:
             continue
         if kind == "new":
-            _fire_order_event("order_new", record)
+            _fire_order_event("order_new", record, session)
         elif _status_is_closed(record.get("status")):
-            _fire_order_event("order_closed", record)
+            _fire_order_event("order_closed", record, session)
         else:
-            _fire_order_event("order_changed", record)
+            _fire_order_event("order_changed", record, session)
 
 
 def _emit_line_item_events(
@@ -144,11 +161,11 @@ def _emit_line_item_events(
         kind = classification.get(jb2_id)
         if kind is None:
             continue
-        _fire_order_event(
-            "order_line_item_new" if kind == "new" else "order_line_item_changed", record
-        )
-        # P1-07: fetch this line item's routing + planned materials, keyed
-        # off the row we (or the upsert above) just wrote.
+        # P1-07: fetch this line item's routing + planned materials *before*
+        # firing the event -- P2-10's work-order-creation hook binds against
+        # this line item's routing, so the routing mirror must already be
+        # populated by the time the hook runs (hooks fire synchronously,
+        # in-line, immediately below).
         line_item = session.scalars(
             select(JB2OrderLineItem).where(JB2OrderLineItem.jb2_id == jb2_id)
         ).one_or_none()
@@ -157,6 +174,11 @@ def _emit_line_item_events(
                 session, client, line_item.id, record.get("jobNumber"),
                 record.get("orderNumber"), now,
             )
+        _fire_order_event(
+            "order_line_item_new" if kind == "new" else "order_line_item_changed",
+            record,
+            session,
+        )
 
 
 # -- P1-07: order-routings + job-materials/job-requirements follow-on --------
@@ -559,7 +581,7 @@ def run_cycle(
             changed_total += changed
 
             if resource_def.name == "orders":
-                _emit_order_events(page, classification)
+                _emit_order_events(session, page, classification)
             elif resource_def.name == "order-line-items":
                 _emit_line_item_events(session, client, page, classification, now)
 

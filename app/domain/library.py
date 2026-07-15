@@ -494,6 +494,16 @@ def update_substep(
     return substep
 
 
+def set_substep_media(
+    session: Session, substep_id: uuid.UUID, media_list: list[dict], *, who: str | None = None
+) -> Substep:
+    """Flagged addition (P2-06, DD §7.2/C21): overwrite a substep's ``media``
+    json (``[{kind,url,caption}]``). Thin wrapper over `update_substep` --
+    same editable-state guard and logging, no new rule to duplicate. The
+    router owns validating the shape of `media_list` before it gets here."""
+    return update_substep(session, substep_id, media=media_list, who=who)
+
+
 # --------------------------------------------------------------------------
 # Binding support: global-vs-product override resolution (§6.2 rungs 1-2;
 # fuzzy rung 3 and the unbound placeholder are P2-09's, not this module's)

@@ -78,7 +78,9 @@ def load_config(env_path: Path | None = None) -> Config:
         jobboss2_client_secret=get("JobBoss2__ClientSecret"),
         database_url=get("DATABASE_URL"),
         mes_secret_key=get("MES_SECRET_KEY"),
-        artifact_dir=get("ARTIFACT_DIR"),
+        # ponytail: dev fallback so a fresh checkout can upload/serve media
+        # without an .env — P2-06 needs a real default, not None.
+        artifact_dir=get("ARTIFACT_DIR") or str(REPO_ROOT / "artifacts"),
         sync_backfill_days=sync_backfill_days,
         library_require_approver=library_require_approver,
     )

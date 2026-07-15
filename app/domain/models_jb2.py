@@ -6,8 +6,10 @@ sync by hand (see tests/unit/test_models_match_migration.py).
 
 DEFERRED-VERIFY: run against live Postgres 16 when available (plan §9).
 
-`JB2Outbox.work_order_id` is a plain nullable uuid column with **no FK** —
-`work_orders` doesn't exist until Phase 2 (migration 0003 adds the FK).
+`JB2Outbox.work_order_id` is a nullable uuid column with a FK to
+`work_orders.id` — added by migration 0006 (P2-10) now that `work_orders`
+exists (see `app/domain/models_execution.py`). Prior to 0006 it was a plain
+uuid column with no FK (`work_orders` didn't exist until Phase 2).
 """
 from __future__ import annotations
 
@@ -206,13 +208,12 @@ class JB2Outbox(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default="pending")
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # ponytail: plain uuid column, no FK. work_orders arrives in Phase 2;
-    # migration 0003 adds `ForeignKey("work_orders.id")` once it exists.
+    # FK added by migration 0006 (P2-10) — work_orders now exists.
     work_order_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
+        ForeignKey("work_orders.id"),
         nullable=True,
         index=True,
-        comment="Future FK to work_orders.id — added in migration 0003 (Phase 2).",
     )
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
     sent_at: Mapped[datetime | None] = mapped_column(nullable=True)

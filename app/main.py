@@ -6,9 +6,15 @@ import subprocess
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+# P2-10: no API routes yet, but importing registers work_orders/units/
+# plan_operations/plan_pdfs on the shared Base.metadata -- jb2_outbox.work_order_id
+# now carries a real FK to work_orders.id (migration 0006), so anything that
+# creates the full jb2 mirror schema (tests, tools) needs this table present too.
+import app.domain.models_execution  # noqa: F401,E402
 from app.api.display import router as display_router
 from app.api.health import router as health_router
 from app.api.library import router as library_router
+from app.api.media import router as media_router
 from app.api.products import router as products_router
 from app.config import REPO_ROOT
 from app.logging import configure_logging
@@ -40,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(display_router)
     app.include_router(products_router)
     app.include_router(library_router)
+    app.include_router(media_router)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

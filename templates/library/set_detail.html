@@ -130,6 +130,24 @@
         <button class="btn" type="submit">Save substep</button>
       </form>
     </details>
+    <details class="substep-media">
+      <summary>Photos ({{ sub.media|length }})</summary>
+      <div class="media-list">
+        {% for m in sub.media %}
+        <div class="media-item">
+          <img src="{{ m.url }}" alt="{{ m.caption }}" style="max-width:140px;display:block;">
+          {% if m.caption %}<div class="muted">{{ m.caption }}</div>{% endif %}
+          <button type="button" class="btn btn-sm" onclick="openAnnotator('{{ sub.id }}', '{{ m.url }}', {{ sub.media|tojson }})">Annotate</button>
+          <button type="button" class="btn btn-sm btn-danger" onclick="libRemoveMedia('{{ sub.id }}', {{ sub.media|tojson }}, '{{ m.url }}')">Remove</button>
+        </div>
+        {% endfor %}
+      </div>
+      <form class="media-add-form" data-substep-id="{{ sub.id }}" data-existing='{{ sub.media|tojson }}'>
+        <input type="file" accept="image/*" capture="environment" class="media-file">
+        <input type="text" placeholder="Caption" class="media-caption">
+        <button type="button" class="btn btn-sm" onclick="libAddMedia(this)">Add photo</button>
+      </form>
+    </details>
     {% else %}
     <strong>{{ sub.title }}</strong>
     {% if sub.body_html %}<div>{{ sub.body_html|safe }}</div>{% endif %}
@@ -182,4 +200,5 @@
 {% endif %}
 
 <script src="/static/library.js"></script>
+<script src="/static/annotate.js"></script>
 {% endblock %}

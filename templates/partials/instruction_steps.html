@@ -51,8 +51,19 @@
         </div>
         {% endif %}
 
-        {% if sub.type == "photo" %}
+        {% if sub.type == "photo" and not sub.media %}
         <div style="margin-top: 0.3rem; font-size: 0.85rem; color: #777;">[photo capture — none attached]</div>
+        {% endif %}
+
+        {% if sub.media %}
+        <div style="margin-top: 0.4rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          {% for m in sub.media %}
+          <figure style="margin: 0;">
+            <img src="{{ m.url }}" alt="{{ m.caption }}" style="max-width: 200px; border-radius: 4px; display: block;">
+            {% if m.caption %}<figcaption style="font-size: 0.75rem; color: #777;">{{ m.caption }}</figcaption>{% endif %}
+          </figure>
+          {% endfor %}
+        </div>
         {% endif %}
 
         {% if sub.condition %}
