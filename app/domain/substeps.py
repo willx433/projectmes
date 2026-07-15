@@ -16,18 +16,21 @@ finish a step with required substeps open" is enforced by construction
 
 Out-of-tolerance measurements block the substep in `failed` until one of
 the four dispositions (§4 O3/O4/O5, contract §5) is applied via
-`apply_disposition`. `use_as_is`/`rework_in_place` are fully handled here.
-`rework_to_op`/`scrap` only unblock the *substep* record (disposition +
-authorizer recorded, per the AC) -- the unit-level consequence (reopen ops
-K..N, scrap + replacement unit) is intentionally left to P3-08's
-`app/domain/failures.py::record_failure`, which needs a `failure_code_id`
-and (for rework_to_op) an explicit target operation that the measurement
-keypad's disposition dialog never collects (DD §12.2.4 has no code/
-narrative picker there -- that's the dedicated Fail dialog's job). See
-`apply_disposition`'s inline comment for the exact seam. Same scope
+`apply_disposition`. All four now delegate their unit-of-record write to
+`app.domain.failures.record_failure` (P3-R2/ESC-004): the substep-level
+disposition dialog collects a `failure_code_id` (DD §9.4's "every
+out-of-tolerance disposition is recorded") and, for `rework_to_op`, a
+target operation seq, so this module can hand every disposition off to the
+same single effect-implementation `record_failure` already has for the
+whole-operation Fail screen (app/api/station.py) instead of re-implementing
+`use_as_is`/`rework_in_place`'s state changes a second time here. This
+module still owns the substep-row bookkeeping (`disposition`/
+`disposition_by`/`notes`, and the finish-gate recompute) since
+`record_failure` has no reason to know about `step_executions`. Same scope
 boundary for generic `fail_substep` (non-measurement failures, e.g. a
 failed inspection) -- this module only records the failed state +
-narrative.
+narrative; that path has no disposition step at all (a plain fail, not an
+out-of-tolerance one) so it doesn't call `record_failure`.
 """
 from __future__ import annotations
 
@@ -43,7 +46,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import config
-from app.domain import events, statemachine
+from app.domain import events, failures, statemachine
 from app.domain.models_execution import PlanOperation, Unit
 from app.domain.models_floor import (
     FAILURE_DISPOSITIONS,
@@ -507,12 +510,22 @@ def record_measurement(
 
 def apply_disposition(
     session: Session, *, station: Station, operator: Operator, unit_id: uuid.UUID,
-    step_seq: int, substep_seq: int, disposition: str, notes: str | None = None,
-    authorizer: Operator | None = None, now: datetime | None = None,
+    step_seq: int, substep_seq: int, disposition: str, failure_code_id: uuid.UUID,
+    notes: str | None = None, authorizer: Operator | None = None,
+    rework_to_op_seq: int | None = None, now: datetime | None = None,
 ) -> dict[str, Any]:
     """§4 O3/O4/O5: dispose an out-of-tolerance measurement. `authorizer`
     must already be validated by the caller for dispositions that need one
-    (DISPOSITION_ROLES) -- `rework_in_place` needs none."""
+    (DISPOSITION_ROLES) -- `rework_in_place` needs none.
+
+    Delegates the actual effect to `app.domain.failures.record_failure`
+    (P3-R2) for all four dispositions -- one `Failure` row + one effect
+    implementation, instead of this module hand-rolling `use_as_is`/
+    `rework_in_place`'s state changes a second time and leaving
+    `rework_to_op`/`scrap` as substep-only flags nobody acted on. This
+    function keeps only the substep-row bookkeeping `record_failure` has no
+    reason to know about (`disposition`/`disposition_by`/`notes`) and the
+    finish-gate recompute."""
     now = now or datetime.now(timezone.utc)
     if disposition not in FAILURE_DISPOSITIONS:
         raise SubstepError(f"unknown disposition {disposition!r}")
@@ -525,80 +538,40 @@ def apply_disposition(
     if sub.status != "failed" or not sub.out_of_tolerance:
         raise SubstepError("substep has no pending out-of-tolerance disposition")
 
+    rework_to_op = None
+    if disposition == "rework_to_op":
+        if rework_to_op_seq is None:
+            raise SubstepError("rework_to_op disposition requires a target operation")
+        rework_to_op = session.execute(
+            select(PlanOperation).where(
+                PlanOperation.work_order_id == ctx.unit.work_order_id,
+                PlanOperation.seq == rework_to_op_seq,
+            )
+        ).scalars().first()
+        if rework_to_op is None:
+            raise SubstepError(f"no operation at seq {rework_to_op_seq} on this work order")
+
     sub.disposition = disposition
     sub.disposition_by = authorizer.id if authorizer else operator.id
     if notes:
         sub.notes = notes
-    events.emit(
-        session, "disposition.applied", entity=sub, actor_id=operator.id, station_id=station.id,
-        after={
-            "unit_id": str(unit_id), "disposition": disposition,
-            "authorized_by": str(sub.disposition_by),
-        },
-    )
+
+    try:
+        failures.record_failure(
+            session, ctx.unit, ctx.plan_op, sub, failure_code_id, notes, operator,
+            disposition, rework_to_op=rework_to_op, authorized_by=authorizer, now=now,
+        )
+    except (failures.LeadRequiredError, ValueError) as exc:
+        raise SubstepError(str(exc)) from exc
 
     if disposition == "use_as_is":
-        sub.status = "done"
+        # record_failure's _apply_use_as_is already set status="done"; the
+        # completed_at timestamp is substep-row bookkeeping this module owns.
         sub.completed_at = now
-        events.emit(
-            session, "substep.done", entity=sub, actor_id=operator.id, station_id=station.id,
-            after={"unit_id": str(unit_id), "disposition": disposition},
-        )
-    elif disposition == "rework_in_place":
-        # append-only history: supersede this attempt, open a fresh pending
-        # row for the same substep_seq so the operator re-measures (§5
-        # "rework-here (substep resets to pending, rework time accrues)").
-        sub.superseded = True
-        new_sub = SubstepExecution(
-            step_execution_id=ctx.step_exec.id, substep_seq=substep_seq,
-            type=ctx.frozen_sub["type"], status="pending",
-        )
-        session.add(new_sub)
+
+    if disposition in ("use_as_is", "rework_in_place"):
         session.flush()
-        # §5's general rework rule ("first_pass=false forever, rework_count
-        # ++") applies to in-place rework too, not just send-back -- DD §5's
-        # Unit state machine doesn't carve out an in-place exception, and
-        # this is exactly what app/domain/failures.py's own
-        # `_apply_rework_in_place` does for the parallel Fail-dialog path.
-        ctx.unit.first_pass = False
-        ctx.unit.rework_count += 1
-        events.emit(
-            session, "unit.reworked", entity=ctx.unit, actor_id=operator.id, station_id=station.id,
-            after={
-                "mode": "in_place", "plan_operation_id": str(ctx.plan_op.id),
-                "reopened_as": str(new_sub.id),
-            },
-        )
-        events.emit(
-            session, "substep.failed", entity=sub, actor_id=operator.id, station_id=station.id,
-            after={
-                "unit_id": str(unit_id), "disposition": disposition,
-                "reopened_as": str(new_sub.id),
-            },
-        )
-    else:
-        # rework_to_op / scrap: substep stays 'failed' with the disposition
-        # recorded here; the unit-level consequence (reopen ops K..N /
-        # scrap + replacement unit, DD §6.5) is deliberately NOT delegated
-        # to app.domain.failures.record_failure from this call site --
-        # that function requires a `failure_code_id` (taxonomy pick) and,
-        # for rework_to_op, an explicit target operation, neither of which
-        # the out-of-tolerance measurement dialog collects (DD §12.2.4:
-        # nominal/tolerance + a 4-way disposition choice, no code/narrative
-        # picker -- that's the dedicated Fail dialog's job, P3-08's
-        # templates/station/fail.html). So a measurement-triggered
-        # send-back/scrap records the disposition + blocks step completion
-        # here; an operator/lead still needs the Fail dialog to actually
-        # move the unit. Documented seam, not a missed wire-up.
-        events.emit(
-            session, "substep.failed", entity=sub, actor_id=operator.id, station_id=station.id,
-            after={
-                "unit_id": str(unit_id), "disposition": disposition,
-                "deep_flow": "requires_fail_dialog",
-            },
-        )
-    session.flush()
-    _recompute_step_status(session, ctx.step_exec, ctx.frozen_step, now=now)
+        _recompute_step_status(session, ctx.step_exec, ctx.frozen_step, now=now)
     return {"status": sub.status, "disposition": disposition}
 
 

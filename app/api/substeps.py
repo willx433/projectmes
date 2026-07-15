@@ -38,24 +38,6 @@ def _back(unit_id: uuid.UUID, step_seq: int, error: str | None = None) -> Redire
     return RedirectResponse(url, status_code=303)
 
 
-def _second_badge_any(
-    session: Session, *, payload: str, roles: tuple[str, ...], actor: Operator
-) -> Operator:
-    """Like deps.second_badge but accepts any of several roles (DD §4 O3:
-    "lead or quality"). Tries each in turn -- every attempt is audited by
-    service.second_badge itself, so a multi-role check may log more than
-    one auth_events row; acceptable, it's still an accurate record of what
-    was tried."""
-    last_exc: service.SecondBadgeError | None = None
-    for role in roles:
-        try:
-            return deps.second_badge(session, payload=payload, role=role, actor=actor)
-        except service.SecondBadgeError as exc:
-            last_exc = exc
-    assert last_exc is not None
-    raise last_exc
-
-
 @router.post("/units/{unit_id}/substeps/{step_seq}/{substep_seq}/start")
 def station_substep_start(
     unit_id: uuid.UUID,
@@ -199,6 +181,8 @@ def station_substep_disposition(
     step_seq: int,
     substep_seq: int,
     disposition: str = Form(...),
+    failure_code_id: uuid.UUID = Form(...),
+    rework_to_op_seq: int | None = Form(None),
     notes: str = Form(""),
     override_badge: str = Form(""),
     request_id: str | None = Form(None),
@@ -216,7 +200,7 @@ def station_substep_disposition(
                 raise service.SecondBadgeError(
                     f"disposition '{disposition}' requires a badge scan from one of {roles}"
                 )
-            authorizer = _second_badge_any(
+            authorizer = deps.second_badge_any(
                 session, payload=override_badge, roles=roles, actor=operator
             )
         statemachine.with_request_dedup(
@@ -224,6 +208,7 @@ def station_substep_disposition(
             lambda: substeps.apply_disposition(
                 session, station=station, operator=operator, unit_id=unit_id,
                 step_seq=step_seq, substep_seq=substep_seq, disposition=disposition,
+                failure_code_id=failure_code_id, rework_to_op_seq=rework_to_op_seq,
                 notes=notes or None, authorizer=authorizer,
             ),
         )

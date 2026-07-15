@@ -21,6 +21,7 @@ from __future__ import annotations
 import uuid
 from datetime import date
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse
@@ -31,7 +32,7 @@ from sqlalchemy.orm import Session
 from app.auth import deps, service
 from app.config import REPO_ROOT, config
 from app.db import get_session
-from app.domain import statemachine, substeps
+from app.domain import failures, library, statemachine, substeps
 from app.domain.models_execution import PlanOperation, Unit, WorkOrder
 from app.domain.models_floor import Operator, Station
 from app.domain.models_jb2 import JB2OrderLineItem, JB2OrderRouting
@@ -278,6 +279,24 @@ def station_execute(
     exec_map = substeps.substep_execution_map(session, plan_op, unit)
     remaining = substeps.remaining_required_count(session, plan_op, unit)
 
+    # Failure-code picker + rework-to-op picker for the measurement
+    # disposition dialog (P3-R2/ESC-004): product-scoped + global codes for
+    # this unit's product, and every plan op at/before the current one (a
+    # rework_to_op target may never be later than where the failure was
+    # caught, app/domain/failures.py's own check).
+    work_order = session.get(WorkOrder, unit.work_order_id)
+    failure_codes = library.list_failure_codes(
+        session, work_order.product_id if work_order else None
+    )
+    rework_ops = session.scalars(
+        select(PlanOperation)
+        .where(
+            PlanOperation.work_order_id == unit.work_order_id,
+            PlanOperation.seq <= plan_op.seq,
+        )
+        .order_by(PlanOperation.seq)
+    ).all()
+
     current_seq = step if step is not None else substeps.current_step_seq(session, plan_op, unit)
     current_step = next((s for s in steps if s["seq"] == current_seq), steps[0] if steps else None)
 
@@ -301,9 +320,129 @@ def station_execute(
             "steps": steps, "step_status": step_status, "exec_map": exec_map,
             "current_step": current_step, "iset": iset_shim, "tree": tree,
             "work_session": work_session, "remaining": remaining,
+            "failure_codes": failure_codes, "rework_ops": rework_ops,
             "error": request.query_params.get("error"),
         },
     )
+
+
+# -- whole-operation Fail screen (P3-R2 remediation, ESC-004) --------------------
+#
+# The deep failure/rework/scrap flow (app/domain/failures.record_failure,
+# DD §6.5) wired to its own kiosk screen: failure-code picker + narrative +
+# a 4-way disposition choice, same taxonomy/target-op pickers as the
+# measurement dialog above. `rework_to_op`/`scrap` require a lead second
+# badge (O4/O5); `use_as_is` accepts lead-or-quality (O3, same role set as
+# app/domain/substeps.py's DISPOSITION_ROLES -- reused rather than
+# redeclared). `rework_in_place` needs none.
+
+
+@router.get("/station/fail/{unit_id}")
+def station_fail_form(
+    unit_id: uuid.UUID,
+    request: Request,
+    station: Station = Depends(deps.require_station),
+    operator: Operator = Depends(deps.require_operator),
+    session: Session = Depends(get_session),
+):
+    unit = session.get(Unit, unit_id)
+    if unit is None:
+        raise HTTPException(status_code=404, detail="unit not found")
+    plan_op = statemachine.unit_next_op(session, unit)
+    if plan_op is None:
+        return RedirectResponse(
+            f"/station/scan-result/{unit_id}?error=no+active+operation+for+this+unit",
+            status_code=303,
+        )
+
+    work_order = session.get(WorkOrder, unit.work_order_id)
+    product = session.get(Product, work_order.product_id) if work_order else None
+    failure_codes = library.list_failure_codes(
+        session, work_order.product_id if work_order else None
+    )
+    rework_ops = session.scalars(
+        select(PlanOperation)
+        .where(
+            PlanOperation.work_order_id == unit.work_order_id,
+            PlanOperation.seq <= plan_op.seq,
+        )
+        .order_by(PlanOperation.seq)
+    ).all()
+
+    return templates.TemplateResponse(
+        request, "station/fail.html",
+        {
+            "station": station, "operator": operator, "unit": unit, "work_order": work_order,
+            "product": product, "plan_op": plan_op, "failure_codes": failure_codes,
+            "rework_ops": rework_ops, "error": request.query_params.get("error"),
+        },
+    )
+
+
+@router.post("/station/fail/{unit_id}")
+def station_fail_submit(
+    unit_id: uuid.UUID,
+    disposition: str = Form(...),
+    failure_code_id: uuid.UUID = Form(...),
+    narrative: str = Form(""),
+    rework_to_op_seq: int | None = Form(None),
+    override_badge: str = Form(""),
+    station: Station = Depends(deps.require_station),
+    operator: Operator = Depends(deps.require_operator),
+    session: Session = Depends(get_session),
+):
+    unit = session.get(Unit, unit_id)
+    if unit is None:
+        raise HTTPException(status_code=404, detail="unit not found")
+    plan_op = statemachine.unit_next_op(session, unit)
+    if plan_op is None:
+        return RedirectResponse(
+            f"/station/scan-result/{unit_id}?error=no+active+operation+for+this+unit",
+            status_code=303,
+        )
+
+    roles = substeps.DISPOSITION_ROLES.get(disposition)
+    try:
+        authorizer = None
+        if roles:
+            if not override_badge:
+                raise service.SecondBadgeError(
+                    f"disposition '{disposition}' requires a badge scan from one of {roles}"
+                )
+            authorizer = deps.second_badge_any(
+                session, payload=override_badge, roles=roles, actor=operator
+            )
+
+        rework_to_op = None
+        if disposition == "rework_to_op":
+            if rework_to_op_seq is None:
+                raise ValueError("rework_to_op disposition requires a target operation")
+            rework_to_op = session.scalars(
+                select(PlanOperation).where(
+                    PlanOperation.work_order_id == unit.work_order_id,
+                    PlanOperation.seq == rework_to_op_seq,
+                )
+            ).first()
+            if rework_to_op is None:
+                raise ValueError(f"no operation at seq {rework_to_op_seq} on this work order")
+
+        failures.record_failure(
+            session, unit, plan_op, None, failure_code_id, narrative or None, operator,
+            disposition, rework_to_op=rework_to_op, authorized_by=authorizer,
+        )
+        session.commit()
+    except (ValueError, service.SecondBadgeError) as exc:
+        session.rollback()
+        return RedirectResponse(
+            f"/station/fail/{unit_id}?error={quote(str(exc))}", status_code=303
+        )
+
+    # scrap/rework_to_op: the unit leaves this operation (scrapped, or
+    # in_transit to op K) -- back to idle. use_as_is/rework_in_place: the
+    # unit stays put, operator resumes the same operation.
+    if disposition in ("scrap", "rework_to_op"):
+        return RedirectResponse("/station", status_code=303)
+    return RedirectResponse(f"/station/execute/{unit_id}", status_code=303)
 
 
 # -- photo attachment retrieval (P3-12) -------------------------------------------

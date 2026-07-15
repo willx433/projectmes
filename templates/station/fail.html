@@ -1,0 +1,60 @@
+{#
+  Whole-operation Fail screen (P3-R2/ESC-004, DD §6.5/§12.2.3). Records one
+  `failures` row via app.domain.failures.record_failure with a
+  failure-code + narrative + one of four dispositions -- unlike the
+  per-substep dialog (templates/station/_substep_control.html) this isn't
+  tied to a single substep_execution (substep_execution=None); it's the
+  footer's "something is wrong with this whole operation" escape hatch.
+#}
+{% extends "station/base.html" %}
+{% block title %}Fail operation &middot; Atlas MES{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h2>Fail operation &mdash; {{ product.name if product else "Unknown product" }} Unit #{{ unit.unit_no }}</h2>
+  <p class="muted">{{ plan_op.title }}</p>
+
+  <form method="post" action="/station/fail/{{ unit.id }}" class="fail-form">
+    <label>
+      Failure code
+      <select name="failure_code_id" required>
+        <option value="">Select a failure code&hellip;</option>
+        {% for fc in failure_codes %}
+        <option value="{{ fc.id }}">{{ fc.code }} &mdash; {{ fc.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Narrative
+      <textarea name="narrative" placeholder="What happened"></textarea>
+    </label>
+
+    <fieldset>
+      <legend>Disposition</legend>
+      <label><input type="radio" name="disposition" value="rework_in_place" checked> Rework here</label>
+      <label>
+        <input type="radio" name="disposition" value="rework_to_op"> Send back to operation
+        <select name="rework_to_op_seq">
+          <option value="">Target op&hellip;</option>
+          {% for op in rework_ops %}
+          <option value="{{ op.seq }}">Op {{ op.seq }} &mdash; {{ op.title }}</option>
+          {% endfor %}
+        </select>
+        &mdash; lead
+      </label>
+      <label><input type="radio" name="disposition" value="scrap"> Scrap &mdash; lead</label>
+      <label><input type="radio" name="disposition" value="use_as_is"> Use as-is (deviation) &mdash; lead/quality</label>
+    </fieldset>
+
+    <label>
+      Lead/quality badge (required for send-back, scrap, use-as-is)
+      <input type="text" name="override_badge" placeholder="Badge scan">
+    </label>
+
+    <button type="submit" class="btn btn-danger">Submit</button>
+  </form>
+</section>
+
+<p class="link-row"><a href="/station/execute/{{ unit.id }}">&larr; Back to operation</a></p>
+{% endblock %}

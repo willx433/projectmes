@@ -61,18 +61,14 @@
   </form>
 
   {#
-    Whole-operation Fail (DD §12.2.3 footer spec) -- the code+narrative+
-    photo+disposition deep flow (rework/send-back/scrap at the operation
-    level) is P3-08's domain (app/domain/failures.py, already landed) and
-    its own station screen (templates/station/fail.html per the plan
-    table), not built at the time this screen was written. Per-substep
+    Whole-operation Fail (DD §12.2.3 footer spec) -- code+narrative+
+    disposition deep flow (rework/send-back/scrap at the operation level),
+    templates/station/fail.html + app/api/station.py's
+    station_fail_form/station_fail_submit (P3-R2/ESC-004). Per-substep
     fail/disposition (inspection Fail, measurement out-of-tolerance
-    disposition) is fully implemented above -- this link is only the
-    footer's escape hatch to the fuller flow once that screen exists;
-    it 404s harmlessly until then (seam, not a broken feature this task
-    owns).
+    disposition) is the per-row controls above.
   #}
-  <a class="btn btn-sm btn-danger" href="/station/fail/{{ unit.id }}?plan_op={{ plan_op.id }}">Fail</a>
+  <a class="btn btn-sm btn-danger" href="/station/fail/{{ unit.id }}">Fail</a>
 
   <form class="inline-form finish-form" data-unit-id="{{ unit.id }}" data-plan-op-id="{{ plan_op.id }}">
     <button type="submit" class="btn {{ 'btn-danger' if remaining == 0 }}" id="finish-btn" {{ 'disabled' if remaining > 0 }}>

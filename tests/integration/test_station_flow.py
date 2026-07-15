@@ -46,6 +46,7 @@ from app.domain.models_floor import (
     WorkSession,
 )
 from app.domain.models_jb2 import Base, JB2OrderLineItem, JB2OrderRouting
+from app.domain.models_library import FailureCode
 
 # Registers the full model graph on Base.metadata (work_orders etc.).
 from app.main import app as _main_app  # noqa: F401
@@ -195,6 +196,15 @@ def _seed(db_session: Session) -> tuple[WorkOrder, PlanOperation, Unit, BuildBox
     return work_order, plan_op, unit, box
 
 
+def _seed_failure_code(db_session: Session, *, code="DIM-OOT", label="Dimension out of tolerance"):
+    """Global-scope (product_id=None) failure code -- P3-R2's disposition
+    dialogs require picking one (DD §9.4)."""
+    fc = FailureCode(id=uuid.uuid4(), product_id=None, code=code, label=label)
+    db_session.add(fc)
+    db_session.flush()
+    return fc
+
+
 def _make_station(db_session, *, work_center_code="ASSY1"):
     station, token = service.create_station(
         db_session, name="Assy 1", work_center_code=work_center_code
@@ -245,6 +255,7 @@ def walk(client, db_session):
     """Shared setup for the substep-walk tests: station/operator/lead badged
     in, box scanned (S6 accept), execute screen reachable."""
     work_order, plan_op, unit, box = _seed(db_session)
+    failure_code = _seed_failure_code(db_session)
     station, token = _make_station(db_session)
     operator = _make_operator(db_session, name="Op1")
     lead = _make_operator(db_session, name="Lead1", roles=["operator", "lead"])
@@ -253,6 +264,7 @@ def walk(client, db_session):
     return {
         "work_order": work_order, "plan_op": plan_op, "unit": unit, "box": box,
         "station": station, "token": token, "operator": operator, "lead": lead,
+        "failure_code": failure_code,
     }
 
 
@@ -319,7 +331,10 @@ def test_measurement_out_of_tolerance_blocks_then_disposition_unblocks(client, w
     # disposition: rework-here (no second badge needed) -> resets to pending
     resp = client.post(
         _substep_url(unit_id, 1, 2, "disposition"),
-        data={"disposition": "rework_in_place", "request_id": "r-disp-1"},
+        data={
+            "disposition": "rework_in_place", "request_id": "r-disp-1",
+            "failure_code_id": str(walk["failure_code"].id),
+        },
         headers=HEADERS(walk["token"]),
     )
     assert resp.status_code == 303

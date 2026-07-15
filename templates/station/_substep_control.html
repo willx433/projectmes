@@ -58,8 +58,20 @@
             <option value="rework_to_op">Send back &mdash; lead</option>
             <option value="scrap">Scrap &mdash; lead</option>
           </select>
+          <select name="failure_code_id" class="who-input" required>
+            <option value="">Failure code&hellip;</option>
+            {% for fc in failure_codes %}
+            <option value="{{ fc.id }}">{{ fc.code }} &mdash; {{ fc.label }}</option>
+            {% endfor %}
+          </select>
+          <select name="rework_to_op_seq" class="who-input">
+            <option value="">Rework target op (if sending back)&hellip;</option>
+            {% for op in rework_ops %}
+            <option value="{{ op.seq }}">Op {{ op.seq }} &mdash; {{ op.title }}</option>
+            {% endfor %}
+          </select>
           <input type="text" name="override_badge" placeholder="Lead/quality badge (if required)" class="who-input">
-          <input type="text" name="notes" placeholder="Notes" class="who-input">
+          <textarea name="notes" placeholder="Narrative" class="who-input"></textarea>
           <button type="submit" class="btn btn-sm btn-danger">Apply disposition</button>
         </form>
       {% else %}

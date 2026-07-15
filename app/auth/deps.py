@@ -153,3 +153,24 @@ def second_badge(
         )
     except service.SecondBadgeError:
         raise
+
+
+def second_badge_any(
+    session: Session, *, payload: str, roles: tuple[str, ...], actor: Operator
+) -> Operator:
+    """Like `second_badge` but accepts any of several roles (DD §4 O3: "lead
+    or quality"). Tries each in turn -- every attempt is audited by
+    `service.second_badge` itself, so a multi-role check may log more than
+    one auth_events row; acceptable, it's still an accurate record of what
+    was tried. Shared by app/api/substeps.py's per-substep disposition
+    dialog and app/api/station.py's whole-operation Fail screen (P3-R2) --
+    was a private helper duplicated in substeps.py; moved here so both
+    routers route through one implementation."""
+    last_exc: service.SecondBadgeError | None = None
+    for role in roles:
+        try:
+            return second_badge(session, payload=payload, role=role, actor=actor)
+        except service.SecondBadgeError as exc:
+            last_exc = exc
+    assert last_exc is not None
+    raise last_exc
