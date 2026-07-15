@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Admin · Stations — Atlas MES{% endblock %}
+{% block header_title %}Stations{% endblock %}
+
+{% block main %}
+
+{% if new_token %}
+<div class="banner banner-warn">
+  Station <strong>{{ new_station_name }}</strong> enrolled. Kiosk token (shown once —
+  copy it into the tablet's enrollment step now, it will not be shown again):
+  <code>{{ new_token }}</code>
+</div>
+{% endif %}
+
+<section class="card">
+  <h2>Stations</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Work center</th><th>Location</th><th>Status</th><th>Last seen</th></tr>
+      </thead>
+      <tbody>
+        {% for s in stations %}
+        <tr>
+          <td>{{ s.name }}</td>
+          <td>{{ s.work_center_code or "—" }}</td>
+          <td>{{ s.location or "—" }}</td>
+          <td><span class="badge {{ 'badge-active' if s.active else 'badge-inactive' }}">{{ "active" if s.active else "inactive" }}</span></td>
+          <td>{{ s.last_seen_at.isoformat() if s.last_seen_at else "never" }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">No stations enrolled yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Enroll a station</h2>
+  <p class="muted">Issues a one-time kiosk token (DD §14). The token is shown once, immediately
+  after submit — enter it on the tablet's enrollment screen before navigating away.</p>
+  <form method="post" action="/admin/stations">
+    <div class="field">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" required>
+    </div>
+    <div class="field">
+      <label for="work_center_code">Work center code (optional, joins jb2_work_centers.code)</label>
+      <input type="text" id="work_center_code" name="work_center_code">
+    </div>
+    <div class="field">
+      <label for="location">Location (optional)</label>
+      <input type="text" id="location" name="location">
+    </div>
+    <button type="submit" class="btn">Enroll station</button>
+  </form>
+</section>
+
+{% endblock %}

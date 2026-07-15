@@ -4,7 +4,8 @@ Exact keys (per IMPLEMENTATION_PLAN.md P1-01 / DD §16.3), never renamed:
 JobBoss2__ApiBaseUrl, JobBoss2__AuthBaseUrl, JobBoss2__ClientId,
 JobBoss2__ClientSecret, DATABASE_URL, MES_SECRET_KEY, ARTIFACT_DIR,
 LIBRARY_REQUIRE_APPROVER (P2-03, DD §7.2 two-person publish gate; default
-false = single-approver per plan §9).
+false = single-approver per plan §9), STATION_SESSION_IDLE_MIN (P3-03, DD
+§14 "expires after configurable idle, e.g. 10 min"; default 10).
 """
 from __future__ import annotations
 
@@ -40,6 +41,7 @@ class Config:
     artifact_dir: str | None
     sync_backfill_days: int
     library_require_approver: bool
+    station_session_idle_min: int
 
     def validate(self, required: list[str]) -> None:
         """Raise if any of the given attribute names are unset. Endpoints/workers
@@ -70,6 +72,8 @@ def load_config(env_path: Path | None = None) -> Config:
         "true",
         "yes",
     )
+    raw_idle_min = get("STATION_SESSION_IDLE_MIN")
+    station_session_idle_min = int(raw_idle_min) if raw_idle_min else 10
 
     return Config(
         jobboss2_api_base_url=get("JobBoss2__ApiBaseUrl"),
@@ -83,6 +87,7 @@ def load_config(env_path: Path | None = None) -> Config:
         artifact_dir=get("ARTIFACT_DIR") or str(REPO_ROOT / "artifacts"),
         sync_backfill_days=sync_backfill_days,
         library_require_approver=library_require_approver,
+        station_session_idle_min=station_session_idle_min,
     )
 
 

@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.config import REPO_ROOT, config
 from app.db import get_session
 from app.domain.models_execution import PlanPdf, WorkOrder
-from app.domain.models_jb2 import JB2Employee
+from app.domain.models_floor import Operator
 from app.domain.models_library import Product
 from app.pdf import badges as badges_pdf
 from app.pdf.guide import generate_build_guide
@@ -84,19 +84,22 @@ def download_work_order_pdf(work_order_id: uuid.UUID, filename: str) -> FileResp
 
 @router.get("/admin/print/badges")
 def print_badges(session: Session = Depends(get_session)) -> Response:
-    """Badge sheet for every jb2_employees mirror row. ponytail: badge uuid
-    is minted fresh on every print -- there's no `operators` table yet
-    (Phase 3), so nothing persists a stable badge<->employee uuid across
-    reprints. Upgrade when Phase 3 lands: store the uuid on the operator
-    row instead of generating one here."""
-    employees = session.scalars(
-        select(JB2Employee).where(JB2Employee.active.is_(True)).order_by(JB2Employee.name)
+    """Badge sheet for every active `operators` row (P3-03 touch: this used
+    to mint a fresh uuid per jb2_employees row on every print, a stopgap
+    noted in this function's old docstring since there was no `operators`
+    table before Phase 3. Now that app/auth/service.py mints a stable
+    `OP:{uuid}` badge_qr per operator at creation time, reprints show the
+    SAME payload every time -- reprinting no longer silently invalidates a
+    previously-scanned badge card."""
+    operators = session.scalars(
+        select(Operator).where(Operator.active.is_(True)).order_by(Operator.display_name)
     ).all()
-    operators = [
-        {"name": e.name or e.employee_code or str(e.id), "badge_uuid": str(uuid.uuid4())}
-        for e in employees
+    badge_rows = [
+        {"name": op.display_name, "badge_uuid": op.badge_qr.removeprefix("OP:")}
+        for op in operators
+        if op.badge_qr
     ]
-    pdf_bytes = badges_pdf.badge_sheet(operators)
+    pdf_bytes = badges_pdf.badge_sheet(badge_rows)
     return Response(content=pdf_bytes, media_type="application/pdf")
 
 

@@ -491,7 +491,11 @@ class Event(Base):
     # SQLite (unit tests) falls back to its native autoincrement rowid via
     # plain Integer/BigInteger with autoincrement=True -- same portable-
     # dialect pattern used elsewhere in this codebase for PG-only features.
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer(), "sqlite"),  # sqlite rowid-aliases INTEGER only
+        primary_key=True,
+        autoincrement=True,
+    )
     at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
     actor_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("operators.id"), nullable=True, index=True

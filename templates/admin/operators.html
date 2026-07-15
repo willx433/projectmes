@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Admin · Operators — Atlas MES{% endblock %}
+{% block header_title %}Operators{% endblock %}
+
+{% block main %}
+
+{% if new_badge %}
+<div class="banner banner-warn">
+  Badge payload (shown once here; print the badge sheet below for the physical card):
+  <code>{{ new_badge }}</code>
+</div>
+{% endif %}
+
+<section class="card">
+  <h2>Operators</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Roles</th><th>PIN set</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for op in operators %}
+        <tr>
+          <td>{{ op.display_name }}</td>
+          <td>{{ (op.roles or [])|join(", ") or "—" }}</td>
+          <td>{{ "yes" if op.pin_hash else "no" }}</td>
+          <td><span class="badge {{ 'badge-active' if op.active else 'badge-inactive' }}">{{ "active" if op.active else "inactive" }}</span></td>
+          <td>
+            <form method="post" action="/admin/operators/{{ op.id }}/revoke">
+              <button type="submit" class="btn">Revoke badge (reissue)</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">No operators yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p><a href="/admin/print/badges">Print badge sheet</a></p>
+</section>
+
+<section class="card">
+  <h2>New operator</h2>
+  <form method="post" action="/admin/operators">
+    <div class="field">
+      <label for="display_name">Name</label>
+      <input type="text" id="display_name" name="display_name" required>
+    </div>
+    <div class="field">
+      <label>Roles</label>
+      {% for role in all_roles %}
+      <div class="field-inline">
+        <input type="checkbox" id="role-{{ role }}" name="roles" value="{{ role }}">
+        <label for="role-{{ role }}">{{ role }}</label>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="field">
+      <label for="pin">PIN (optional fallback login)</label>
+      <input type="password" id="pin" name="pin" inputmode="numeric" autocomplete="off">
+    </div>
+    <button type="submit" class="btn">Create operator</button>
+  </form>
+</section>
+
+{% endblock %}

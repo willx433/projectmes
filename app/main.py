@@ -11,6 +11,8 @@ from fastapi.staticfiles import StaticFiles
 # now carries a real FK to work_orders.id (migration 0006), so anything that
 # creates the full jb2 mirror schema (tests, tools) needs this table present too.
 import app.domain.models_execution  # noqa: F401,E402
+import app.domain.models_floor  # noqa: F401,E402 -- P3-03: operators/stations/auth_events
+from app.api.auth import router as auth_router
 from app.api.display import router as display_router
 from app.api.health import router as health_router
 from app.api.library import router as library_router
@@ -49,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(library_router)
     app.include_router(media_router)
     app.include_router(workorders_router)
+    app.include_router(auth_router)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
