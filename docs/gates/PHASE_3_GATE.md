@@ -26,14 +26,16 @@ catch. Fixed (`to_utc` now `.astimezone(utc)` for aware values); regression lock
 `tests/unit/test_jb2_datetime.py` (3 tests); re-run walk confirms `timeStart == timeEnd`
 zone, no phantom gap.
 
-## Carried exception (unchanged, blocks nothing further in-repo)
+## Carried exception — CLEARED 2026-07-15
 
-- **CR-012 / P0-R1**: live-JB2 write-path items (real time-ticket round-trip semantics,
-  `timeStart/timeEnd` vs `setupTime/cycleTime` intent, `user_Text*` write) remain blocked
-  on Will (dummy job number + write authorization). The write payload is proven correct
-  against **fake-JB2**; the `_time_fields()` builder isolates the one unresolved choice
-  (`app/outbox/payloads.py`, defaulting to `timeStart/timeEnd`) behind a single function
-  so P0-R1 flips it in one place once the live probe runs. **Does not block Phase 4.**
+- **CR-012 / P0-R1**: RESOLVED via authorized live writes against sandbox job 28962-07.
+  The live contract differed materially from the spec (nested `POST /time-tickets`, `HH:MM`
+  clock times, JB2-derived `cycleTime`, no `operationNumber`/`workCenter`) — see
+  `docs/jb2-api-findings.md` §2. The builder was reworked to match (**CR-018**) and the
+  gate-3 walk write-diff re-verified: emitted payload now byte-matches the live-confirmed
+  shape, still zero routing PATCH (CR-010). The floor→JB2 write path is now proven against
+  the real tenant, not just fake-JB2. (Remaining untested-live: `user_Text*` write, low
+  value — not on any critical path.)
 
 ## Suite
 
