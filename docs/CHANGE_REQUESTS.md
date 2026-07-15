@@ -7,6 +7,12 @@ changes. Design doc wins on technical matters; product design doc wins on philos
 Note: the legacy build's `legacy/change-requests.md` (CR-001/CR-002 of the superseded
 system) is archived history, not part of this series.
 
+**Status 2026-07-15:** Phases 0–4 built; all four gates PASS (`docs/gates/PHASE_{0..4}_GATE.md`).
+CR-001..017 below document every deviation the implementation made from the design docs.
+All future scope changes go through this file (a `Proposed` row + Fable/Will approval)
+**before** any code changes. Open items still tracked: CR-008 (backup deferred),
+CR-012 (live JB2 write probe — needs a dummy job number), CR-017 (admin-auth hardening).
+
 | CR-ID | Date | Requester | Description | DD sections affected | Tier assigned | Status | Gate impact |
 |---|---|---|---|---|---|---|---|
 | CR-001 | 2026-07-14 | Plan (Fable) | Legacy governing docs (`requirements.md`, old `implementation-plan.md`, `library.md`, `change-requests.md`) and the SQLite read-only-island app are **superseded** by the July-2026 design set; entire legacy build archived to `legacy/`, mined for reference only (JB2 wire constants, base-template pattern, test philosophy). | all (baseline) | Fable | Approved (plan §0 X1) | none — pre-Phase 0 |
