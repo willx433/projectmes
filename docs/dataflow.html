@@ -1,0 +1,504 @@
+<title>Atlas MES — As-Built Data Flow</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --jb2: #1f6f8b;
+    --mes: #c0392b;
+    --wb:  #f2a541;
+    --bg: #0f1216;
+    --panel: #171b21;
+    --panel2: #1d232b;
+    --text: #e8ecf1;
+    --muted: #9aa7b4;
+    --mono-bg: #10141a;
+    --border: #2a323d;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --panel2: #f0f3f6;
+      --text: #1c232b;
+      --muted: #5a6774;
+      --mono-bg: #eef1f4;
+      --border: #d8dee4;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1216; --panel: #171b21; --panel2: #1d232b;
+    --text: #e8ecf1; --muted: #9aa7b4; --mono-bg: #10141a; --border: #2a323d;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f6f8; --panel: #ffffff; --panel2: #f0f3f6;
+    --text: #1c232b; --muted: #5a6774; --mono-bg: #eef1f4; --border: #d8dee4;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  code, .mono {
+    font-family: "SF Mono", Consolas, Menlo, Monaco, monospace;
+    background: var(--mono-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.86em;
+    white-space: nowrap;
+  }
+
+  header.page-head {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 18px;
+    margin-bottom: 28px;
+  }
+  header.page-head h1 { margin: 0 0 6px; font-size: 1.6rem; }
+  header.page-head p { margin: 4px 0; color: var(--muted); font-size: 0.92rem; }
+  header.page-head .commit { color: var(--text); }
+
+  /* ---- legend ---- */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 18px;
+    margin: 16px 0 0;
+    padding: 12px 16px;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.88rem;
+  }
+  .legend .chip { display: flex; align-items: center; gap: 8px; }
+  .legend .swatch { width: 14px; height: 14px; border-radius: 3px; flex: none; }
+
+  /* ---- flow sections ---- */
+  .flow { display: flex; flex-direction: column; align-items: stretch; }
+
+  .arrow-down {
+    display: flex; flex-direction: column; align-items: center;
+    margin: 2px 0;
+    color: var(--muted);
+  }
+  .arrow-down .stem { width: 2px; height: 22px; background: currentColor; }
+  .arrow-down .head {
+    width: 0; height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 10px solid currentColor;
+    margin-top: -1px;
+  }
+  .arrow-down .label {
+    margin: 4px 0;
+    font-size: 0.82rem;
+    text-align: center;
+    max-width: 620px;
+    color: var(--text);
+  }
+  .arrow-down.jb2 { color: var(--jb2); }
+  .arrow-down.mes { color: var(--mes); }
+  .arrow-down.wb  { color: var(--wb); }
+
+  section.node {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    padding: 16px 20px;
+  }
+  section.node.jb2 { border-top: 4px solid var(--jb2); }
+  section.node.mes { border-top: 4px solid var(--mes); }
+  section.node.wb  { border-top: 4px solid var(--wb); }
+
+  section.node h2 {
+    margin: 0 0 4px;
+    font-size: 1.05rem;
+  }
+  section.node h2 .tag {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .tag.jb2 { background: color-mix(in srgb, var(--jb2) 25%, transparent); color: var(--jb2); }
+  .tag.mes { background: color-mix(in srgb, var(--mes) 22%, transparent); color: var(--mes); }
+  .tag.wb  { background: color-mix(in srgb, var(--wb) 28%, transparent); color: #b3720a; }
+  :root[data-theme="dark"] .tag.wb, @media (prefers-color-scheme: dark) { }
+  .tag.wb { color: #8a5a00; }
+  @media (prefers-color-scheme: dark) { .tag.wb { color: #f2c37c; } }
+  :root[data-theme="dark"] .tag.wb { color: #f2c37c; }
+  :root[data-theme="light"] .tag.wb { color: #8a5a00; }
+
+  section.node .file { color: var(--muted); font-size: 0.85rem; margin: 0 0 10px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .chips .chip {
+    background: var(--mono-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 3px 8px;
+    font-size: 0.78rem;
+    font-family: "SF Mono", Consolas, Menlo, Monaco, monospace;
+  }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+  .subbox {
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: var(--panel2);
+  }
+  .subbox h3 { margin: 0 0 6px; font-size: 0.9rem; }
+
+  ul.tight { margin: 6px 0 0; padding-left: 18px; font-size: 0.88rem; }
+  ul.tight li { margin: 3px 0; }
+
+  .note {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dotted var(--border);
+  }
+  .note.dead { border-color: var(--border); }
+
+  /* mapping table */
+  table.mapping {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  table.mapping th, table.mapping td {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.mapping th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  table.mapping tr:last-child td { border-bottom: none; }
+  .arrow-inline { color: var(--muted); padding: 0 4px; }
+
+  .side-loop {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 0 0;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  footer.pagefoot {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  h1, h2, h3 { color: var(--text); }
+  a { color: inherit; }
+</style>
+
+<div class="wrap">
+
+  <header class="page-head">
+    <h1>Atlas MES — As-Built Data Flow</h1>
+    <p>Generated from the as-built code at commit <code class="commit">ead32cb (+dataflow closeout)</code> — every arrow below names the module/file that implements it. This is <strong>not</strong> the design-doc's intended flow; it is what <code>app/main.py</code>, <code>app/sync/*</code>, <code>app/outbox/*</code>, <code>app/domain/*</code>, and <code>app/api/*</code> actually do, walked file by file.</p>
+    <p>Cross-check: <code>tools/gen_dataflow.py</code> introspects the live <code>app</code> object (routes), <code>app.sync.worker.REGISTRY</code>/<code>DISPLAY_REGISTRY</code>, <code>app.sync.worker._order_hooks</code>, and <code>app.outbox.drainer.DEFAULT_SENDERS</code> and prints them — run it and diff against this page's node lists (IMPLEMENTATION_PLAN.md §6, C-01).</p>
+
+    <div class="legend">
+      <span class="chip"><span class="swatch" style="background:var(--jb2)"></span> JB2 — external ERP + its mirror-inbound (JobBOSS2 API, sync mirror tables)</span>
+      <span class="chip"><span class="swatch" style="background:var(--mes)"></span> MES — MES-owned domain/tables/UI</span>
+      <span class="chip"><span class="swatch" style="background:var(--wb)"></span> Write-backs — MES → JB2 outbound</span>
+    </div>
+  </header>
+
+  <div class="flow">
+
+    <!-- ============ JB2 CLOUD API ============ -->
+    <section class="node jb2">
+      <h2>JB2 Cloud API <span class="tag jb2">external / JB2</span></h2>
+      <p class="file">JobBOSS2 hosted REST API — not part of this repo</p>
+      <div class="chips">
+        <span class="chip">POST /oauth2/api-user/token</span>
+        <span class="chip">GET /orders</span>
+        <span class="chip">GET /order-line-items</span>
+        <span class="chip">GET /order-routings</span>
+        <span class="chip">GET /job-materials</span>
+        <span class="chip">GET /job-requirements</span>
+        <span class="chip">GET /estimates</span>
+        <span class="chip">GET /work-centers</span>
+        <span class="chip">GET /operation-codes</span>
+        <span class="chip">GET /employees</span>
+        <span class="chip">GET /reason-codes</span>
+        <span class="chip">GET /document-controls</span>
+        <span class="chip">GET /document-histories</span>
+        <span class="chip">GET /shopview/get-jobs</span>
+        <span class="chip">GET /eci-aps/get-schedule</span>
+        <span class="chip">POST /time-tickets</span>
+        <span class="chip">POST /time-ticket-details</span>
+      </div>
+    </section>
+
+    <div class="arrow-down jb2">
+      <div class="stem"></div><div class="head"></div>
+      <div class="label"><code>app/jb2/client.py</code> — <code>Jb2Client</code>: token cache/refresh (3300s margin), &ge;0.5s politeness throttle, 5xx retry+backoff, 401 reauth-once, <code>CircuitBreaker</code>, <code>get()</code>/<code>post()</code>/<code>iter_pages()</code></div>
+    </div>
+
+    <!-- ============ SYNC LAYER ============ -->
+    <section class="node jb2">
+      <h2>Sync worker <span class="tag jb2">JB2</span></h2>
+      <p class="file"><code>app/sync/worker.py</code>, <code>app/sync/display.py</code>, <code>app/sync/checkpoints.py</code>, <code>app/sync/runs.py</code>, <code>app/sync/engine.py</code> — process entry <code>python -m app.sync</code> (<code>app/sync/__main__.py</code>)</p>
+      <div class="cols">
+        <div class="subbox">
+          <h3><code>REGISTRY</code> (mirror resources, <code>app/sync/worker.py</code>)</h3>
+          <ul class="tight">
+            <li><code>orders</code> → <code>/orders</code> — 60s</li>
+            <li><code>order-line-items</code> → <code>/order-line-items</code> — 60s (+ synchronous <code>/order-routings</code>, <code>/job-materials</code>, <code>/job-requirements</code> fan-out per changed line item, <code>_sync_line_item_children</code>)</li>
+            <li><code>estimates</code>, <code>work-centers</code>, <code>operation-codes</code>, <code>employees</code>, <code>reason-codes</code>, <code>document-controls</code>, <code>document-histories</code> — 900s masters</li>
+          </ul>
+        </div>
+        <div class="subbox">
+          <h3><code>DISPLAY_REGISTRY</code> (<code>app/sync/display.py</code>, CR-011)</h3>
+          <ul class="tight">
+            <li><code>jb2-shopview</code> → <code>/shopview/get-jobs</code> — 300s, 120s timeout override</li>
+            <li><code>jb2-schedule</code> → <code>/eci-aps/get-schedule</code> — 300s, raw envelope (not unwrapped)</li>
+          </ul>
+          <p class="note">Isolated cadence/registry — a failure here only ever produces its own <code>sync_runs</code> row and leaves the last-good <code>display_cache</code> row in place; never affects the mirror registry.</p>
+        </div>
+      </div>
+      <p class="note"><code>run_cycle</code>/<code>run_all_due</code>: per-resource isolation — one resource's failure rolls back only its own upsert, recorded on its own <code>sync_runs</code> row, and never blocks a sibling resource's cycle.</p>
+    </section>
+
+    <div class="arrow-down jb2">
+      <div class="stem"></div><div class="head"></div>
+      <div class="label"><code>app/sync/engine.py</code>'s <code>upsert_records()</code> — content-hash diff, no-ops unchanged rows</div>
+    </div>
+
+    <!-- ============ MIRROR TABLES ============ -->
+    <section class="node jb2">
+      <h2>JB2 mirror tables <span class="tag jb2">JB2</span></h2>
+      <p class="file">Postgres — defined in <code>app/domain/models_jb2.py</code></p>
+      <div class="chips">
+        <span class="chip">jb2_orders</span>
+        <span class="chip">jb2_order_line_items</span>
+        <span class="chip">jb2_order_routings</span>
+        <span class="chip">jb2_order_materials</span>
+        <span class="chip">jb2_parts</span>
+        <span class="chip">jb2_work_centers</span>
+        <span class="chip">jb2_employees</span>
+        <span class="chip">jb2_operation_codes</span>
+        <span class="chip">jb2_reason_codes</span>
+        <span class="chip">jb2_documents</span>
+        <span class="chip">display_cache</span>
+        <span class="chip">sync_checkpoints</span>
+        <span class="chip">sync_runs</span>
+        <span class="chip">jb2_outbox</span>
+        <span class="chip">mapping_exceptions</span>
+      </div>
+      <p class="note"><code>display_cache</code> is read directly by <code>app/api/display.py</code> (<code>GET /api/v1/jb2-shopview</code>, <code>GET /api/v1/jb2-schedule</code>) — display-only, never feeds work-order creation.</p>
+    </section>
+
+    <div class="arrow-down jb2">
+      <div class="stem"></div><div class="head"></div>
+      <div class="label"><code>app/sync/worker.py</code>'s <code>_emit_order_events</code>/<code>_emit_line_item_events</code> fire <code>order_new</code> / <code>order_changed</code> / <code>order_closed</code> / <code>order_line_item_new</code> / <code>order_line_item_changed</code> → <code>register_order_hook</code> subscribers, same open transaction</div>
+    </div>
+
+    <!-- ============ HOOKS / WORK ORDER CREATION ============ -->
+    <section class="node mes">
+      <h2>Work-order creation <span class="tag mes">MES</span></h2>
+      <p class="file"><code>app/sync/hooks.py</code> (subscriber, wired at <code>python -m app.sync</code> startup only) → <code>app/domain/workorders.py</code></p>
+      <ul class="tight">
+        <li><code>order_line_item_new</code> / <code>order_line_item_changed</code> → <code>app/sync/hooks.py:_handle_line_item_event</code> → <code>app/domain/workorders.py:create_from_line_item</code></li>
+        <li><code>order_closed</code> → <code>app/sync/hooks.py:_handle_order_closed</code> → <code>app/domain/workorders.py:cancel_work_order</code> for every work order under that order's line items</li>
+        <li><code>create_from_line_item</code> calls <code>app/domain/binding.py:bind_full_routing</code> (op-code → work-center → fuzzy-title rungs, via <code>app/domain/library.py:resolve_published</code>) to resolve each routing step to a published <code>InstructionSet</code>, then <strong>freezes</strong> a full deep-copy of its steps/substeps into <code>plan_operations.frozen_content</code> — publishing a newer library version afterward never mutates it</li>
+      </ul>
+      <p class="note">Writes land in the <strong>same DB transaction</strong> as the mirror upsert that triggered them (hook receives the firing cycle's own, still-open <code>session</code>) — both commit or both roll back together.</p>
+    </section>
+
+    <div class="arrow-down mes">
+      <div class="stem"></div><div class="head"></div>
+      <div class="label">writes <code>work_orders</code>, <code>units</code>, <code>plan_operations</code> (frozen plan) — Postgres</div>
+    </div>
+
+    <!-- ============ STATION / OFFICE UI + API ============ -->
+    <section class="node mes">
+      <h2>Station / office UI + API surface <span class="tag mes">MES</span></h2>
+      <p class="file"><code>templates/*</code> (Jinja2, HTMX) + <code>app/api/*.py</code> — all 18 routers registered in <code>app/main.py:create_app</code></p>
+      <div class="chips">
+        <span class="chip">scan.py</span><span class="chip">substeps.py</span><span class="chip">operations.py</span>
+        <span class="chip">station.py</span><span class="chip">boxes.py</span><span class="chip">auth.py</span>
+        <span class="chip">workorders.py</span><span class="chip">library.py</span><span class="chip">media.py</span>
+        <span class="chip">products.py</span><span class="chip">backfill.py</span><span class="chip">unit_detail.py</span>
+        <span class="chip">build_record.py</span><span class="chip">dashboard.py</span><span class="chip">metrics.py</span>
+        <span class="chip">display.py</span><span class="chip">health.py</span>
+      </div>
+      <p class="note">Full list of every route on the running <code>app</code> object, in <code>include_router</code> order, is what <code>tools/gen_dataflow.py</code> prints — over 90 routes; the API → domain mapping below covers every router that delegates to <code>app/domain/*</code>.</p>
+    </section>
+
+    <div class="arrow-down mes">
+      <div class="stem"></div><div class="head"></div>
+      <div class="label">each router calls into <code>app/domain/*</code> — the single server-side validator layer (docs/state-machine.md)</div>
+    </div>
+
+    <!-- ============ API -> DOMAIN MAPPING TABLE ============ -->
+    <section class="node mes">
+      <h2>API → domain module mapping <span class="tag mes">MES</span></h2>
+      <p class="file">from each <code>app/api/*.py</code>'s own imports — grep-verified, not inferred</p>
+      <table class="mapping">
+        <tr><th>API router</th><th></th><th>Domain / other module called</th></tr>
+        <tr><td><code>scan.py</code></td><td class="arrow-inline">&rarr;</td><td><code>app/domain/statemachine.py</code> (<code>POST /scan</code>, S1–S10 resolution)</td></tr>
+        <tr><td><code>substeps.py</code></td><td class="arrow-inline">&rarr;</td><td><code>app/domain/statemachine.py</code>, <code>app/domain/substeps.py</code> (step/substep start/complete/fail/skip/measurement/disposition/signoff/material/photo)</td></tr>
+        <tr><td><code>operations.py</code></td><td class="arrow-inline">&rarr;</td><td><code>app/domain/statemachine.py</code>, <code>app/domain/sessions.py</code>, <code>app/domain/events.py</code>, <strong>+ <code>app/outbox/payloads.py</code></strong> (finish → write-back, see below)</td></tr>
+        <tr><td><code>station.py</code></td><td class="arrow-inline">&rarr;</td><td><code>app/domain/failures.py</code>, <code>app/domain/library.py</code>, <code>app/domain/statemachine.py</code>, <code>app/domain/substeps.py</code></td></tr>
+        <tr><td><code>boxes.py</code></td><td class="arrow-inline">&rarr;</td><td><code>app/domain/boxes.py</code> (kit-up, box reassignment)</td></tr>
+        <tr><td><code>library.py</code></td><td class="arrow-inline">&rarr;</td><td><code>app/domain/library.py</code>, <code>app/domain/conditions.py</code>, <code>app/domain/sanitize.py</code></td></tr>
+        <tr><td><code>media.py</code></td><td class="arrow-inline">&rarr;</td><td><code>app/domain/library.py</code> (substep media attach)</td></tr>
+        <tr><td><code>backfill.py</code></td><td class="arrow-inline">&rarr;</td><td><code>app/domain/events.py</code>, <code>app/domain/statemachine.py</code>, <code>app/domain/substeps.py</code>, <strong>+ <code>app/outbox/payloads.py</code></strong></td></tr>
+        <tr><td><code>unit_detail.py</code></td><td class="arrow-inline">&rarr;</td><td><code>app/domain/events.py</code> (timeline read)</td></tr>
+        <tr><td><code>dashboard.py</code></td><td class="arrow-inline">&rarr;</td><td><code>app/domain/pipeline.py</code> (board/KPI derivation)</td></tr>
+        <tr><td><code>metrics.py</code></td><td class="arrow-inline">&rarr;</td><td>raw SQL against views defined in <code>app/domain/metrics.py</code> (<code>v_fpy_unit</code>, <code>v_actual_vs_estimate</code>, <code>v_rework_hours_pct</code>, ...) — no Python domain call</td></tr>
+        <tr><td><code>auth.py</code></td><td class="arrow-inline">&rarr;</td><td><code>app/auth/deps.py</code>, <code>app/auth/service.py</code> (badge auth) — operates on <code>models_floor.Operator/Station</code> directly, no separate domain module</td></tr>
+        <tr><td><code>products.py</code>, <code>workorders.py</code>, <code>build_record.py</code>, <code>display.py</code></td><td class="arrow-inline">&rarr;</td><td>read/write mirror + execution/library models directly (no domain-layer indirection); <code>workorders.py</code>/<code>build_record.py</code> also call <code>app/pdf/*</code> (see PDF section)</td></tr>
+        <tr><td><code>health.py</code></td><td class="arrow-inline">&rarr;</td><td><code>app/jb2/client.py:get_jb2_status</code>, <code>app/outbox/drainer.py</code> (replay), <code>app/sync/checkpoints.py</code>, <code>app/sync/worker.py:REGISTRY</code> — admin observability, not floor data flow</td></tr>
+      </table>
+    </section>
+
+    <div class="arrow-down mes">
+      <div class="stem"></div><div class="head"></div>
+      <div class="label">domain modules read/write execution, floor, and library tables directly (no ORM-repository layer — <code>app/domain/library.py</code>'s own docstring: "one module of plain functions taking a Session")</div>
+    </div>
+
+    <section class="node mes">
+      <h2>Postgres — execution / floor / library tables <span class="tag mes">MES</span></h2>
+      <p class="file"><code>app/domain/models_execution.py</code>, <code>app/domain/models_floor.py</code>, <code>app/domain/models_library.py</code></p>
+      <div class="cols">
+        <div class="subbox">
+          <h3>execution (<code>models_execution.py</code>)</h3>
+          <div class="chips"><span class="chip">work_orders</span><span class="chip">units</span><span class="chip">plan_operations</span><span class="chip">plan_pdfs</span></div>
+        </div>
+        <div class="subbox">
+          <h3>library (<code>models_library.py</code>)</h3>
+          <div class="chips"><span class="chip">products</span><span class="chip">product_part_map</span><span class="chip">instruction_sets</span><span class="chip">steps</span><span class="chip">substeps</span><span class="chip">failure_codes</span></div>
+        </div>
+      </div>
+      <div class="subbox" style="margin-top:14px">
+        <h3>floor (<code>models_floor.py</code>)</h3>
+        <div class="chips">
+          <span class="chip">operators</span><span class="chip">stations</span><span class="chip">build_boxes</span><span class="chip">box_assignments</span>
+          <span class="chip">work_sessions</span><span class="chip">session_pauses</span><span class="chip">step_executions</span><span class="chip">substep_executions</span>
+          <span class="chip">measurements</span><span class="chip">attachments</span><span class="chip">material_records</span><span class="chip">failures</span>
+          <span class="chip">scrap_events</span><span class="chip">scans</span><span class="chip">transits</span><span class="chip">events</span>
+          <span class="chip">auth_events</span><span class="chip">request_dedup</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ WRITE-BACKS ============ -->
+    <div class="arrow-down wb">
+      <div class="stem"></div><div class="head"></div>
+      <div class="label">a closed <code>work_session</code>'s finish/scrap/O6-confirm calls <code>app/outbox/payloads.py:enqueue_finish_writeback</code> — the <strong>one</strong> public entry point, from 3 call sites: <code>app/api/operations.py</code> finish, <code>app/domain/failures.py</code> scrap, <code>app/domain/sessions.py:lead_confirm_session</code></div>
+    </div>
+
+    <section class="node wb">
+      <h2>Write-back payload build + enqueue <span class="tag wb">write-back</span></h2>
+      <p class="file"><code>app/outbox/payloads.py</code> → <code>app/outbox/writer.py:enqueue</code></p>
+      <ul class="tight">
+        <li><code>build_time_ticket_detail</code> builds <code>TimeTicketDetailCreate</code> (employeeCode, jobNumber, stepNumber, workCenter, piecesFinished/Scrapped, reasonNumber, timeStart/End or setupTime) — resolves employee/job-number/work-center via the JB2 mirror; unmapped values record a <code>mapping_exceptions</code> row and skip the write (never enqueue garbage)</li>
+        <li><code>ensure_time_ticket_header</code> enqueues one <code>time_ticket</code> header per (employee, date)</li>
+        <li><code>writer.enqueue</code> inserts the <code>jb2_outbox</code> row in the <strong>caller's own transaction</strong> — same commit/rollback unit as the domain write that produced it</li>
+      </ul>
+      <p class="note"><strong>CR-010:</strong> time-ticket / time-ticket-detail write-backs are the <em>sole</em> JB2 write-back — <code>OrderRoutingUpdate</code> PATCH carries no actuals/status field, so there is no routing-step write-back path at all.</p>
+    </section>
+
+    <div class="arrow-down wb">
+      <div class="stem"></div><div class="head"></div>
+      <div class="label">insert into <code>jb2_outbox</code> (status: pending)</div>
+    </div>
+
+    <section class="node wb">
+      <h2>jb2_outbox <span class="tag wb">write-back</span></h2>
+      <p class="file">Postgres table — <code>app/domain/models_jb2.py:JB2Outbox</code></p>
+      <p class="note">FIFO per <code>work_order_id</code> (rows with a NULL work_order_id share one FIFO stream). Status lifecycle: <code>pending → sent → confirmed | failed</code>.</p>
+    </section>
+
+    <div class="arrow-down wb">
+      <div class="stem"></div><div class="head"></div>
+      <div class="label"><code>app/outbox/drainer.py:drain_once</code> — per-stream FIFO drain, <code>DEFAULT_SENDERS</code> = {<code>time_ticket</code> → <code>_send_time_ticket</code>, <code>time_ticket_detail</code> → <code>_send_time_ticket_detail</code>}; exponential backoff to 8 attempts, 4xx parks immediately as <code>failed</code> (admin <code>replay()</code> via <code>POST /admin/outbox/{id}/replay</code>, <code>app/api/health.py</code>)</div>
+    </div>
+
+    <section class="node jb2">
+      <h2>JB2 Cloud API — write-back targets <span class="tag jb2">JB2</span></h2>
+      <p class="file">loops back to the same external system at the top of this page, via <code>app/jb2/client.py:post()</code></p>
+      <div class="chips">
+        <span class="chip">POST /time-tickets</span>
+        <span class="chip">POST /time-ticket-details</span>
+      </div>
+    </section>
+
+    <!-- ============ EVENTS / DASHBOARD ============ -->
+    <div class="arrow-down mes">
+      <div class="stem"></div><div class="head"></div>
+      <div class="label">every domain mutation calls <code>app/domain/events.py:emit()</code> — append-only, one writer, no update/delete function exists in this module</div>
+    </div>
+
+    <section class="node mes">
+      <h2>Events + live dashboard <span class="tag mes">MES</span></h2>
+      <p class="file"><code>app/domain/events.py</code> → <code>events</code> table → <code>app/api/dashboard.py</code> → <code>app/domain/pipeline.py</code></p>
+      <ul class="tight">
+        <li><code>events</code> table (Postgres, <code>models_floor.py</code>) — every <code>scan.*</code>/<code>session.*</code>/<code>substep.*</code>/<code>failure.*</code>/<code>unit.*</code>/<code>box.*</code>/<code>wo.status_changed</code>/<code>outbox.enqueued</code>/<code>auth.*</code>/<code>backfill.recorded</code> verb, per <code>VALID_VERBS</code></li>
+        <li><code>GET /dashboard/stream</code> (<code>app/api/dashboard.py:dashboard_stream</code>) polls <code>SELECT max(id) FROM events</code> every 1s and pushes an SSE <code>refresh</code> ping when it changes — client re-fetches <code>GET /api/v1/dashboard/pipeline</code></li>
+        <li><code>app/domain/pipeline.py:build_board</code>/<code>compute_kpis</code>/<code>group_cards</code> derive the 7-state board (blocked_no_instructions &gt; overdue &gt; stalled &gt; rework &gt; in_transit &gt; queued &gt; first_pass) from <code>units</code>/<code>work_orders</code>/<code>plan_operations</code>/<code>work_sessions</code>/<code>failures</code>/<code>transits</code> — no new table</li>
+      </ul>
+      <div class="side-loop">
+        <span style="color:var(--muted)">▨</span>
+        <span><strong>Not used for this:</strong> <code>app/ws/hub.py</code> (in-process <code>publish()</code>/<code>subscribe()</code>) exists per the original task shape but is <em>deliberately not wired</em> into <code>events.emit()</code> — an in-process queue can't cross the 4 uvicorn workers (CR-015). The dashboard's live update is the DB-poll-then-SSE path above, correct across however many workers run; <code>hub.py</code> is dead code kept for a possible future single-process/dev use.</span>
+      </div>
+    </section>
+
+    <!-- ============ PDF ARTIFACTS ============ -->
+    <div class="arrow-down mes">
+      <div class="stem"></div><div class="head"></div>
+      <div class="label">on-demand admin actions render execution + library state to PDF via WeasyPrint — no background job, generated the moment a route is hit</div>
+    </div>
+
+    <section class="node mes">
+      <h2>PDF artifacts <span class="tag mes">MES</span></h2>
+      <p class="file"><code>app/pdf/guide.py</code>, <code>app/pdf/badges.py</code>, <code>app/pdf/build_record.py</code></p>
+      <table class="mapping">
+        <tr><th>Trigger route</th><th></th><th>Generator</th><th>Reads</th></tr>
+        <tr>
+          <td><code>POST /admin/work-orders/{id}/generate-pdf</code><br><span class="mono" style="white-space:normal">app/api/workorders.py</span></td>
+          <td class="arrow-inline">&rarr;</td>
+          <td><code>app/pdf/guide.py:generate_build_guide</code></td>
+          <td><code>plan_operations.frozen_content</code>, <code>work_orders</code>, <code>units</code> → <code>plan_pdfs</code> row (versioned, sha256 of plan + of PDF bytes)</td>
+        </tr>
+        <tr>
+          <td><code>GET /admin/print/badges</code>, <code>/admin/print/boxes</code><br><span class="mono" style="white-space:normal">app/api/workorders.py</span></td>
+          <td class="arrow-inline">&rarr;</td>
+          <td><code>app/pdf/badges.py:badge_sheet</code> / <code>box_label_sheet</code></td>
+          <td><code>jb2_employees</code> mirror (badge stand-in) / <code>build_boxes</code> labels — QR payload <code>OP:{uuid}</code> / <code>BOX:{label}</code></td>
+        </tr>
+        <tr>
+          <td><code>POST /admin/units/{id}/build-record</code><br><span class="mono" style="white-space:normal">app/api/build_record.py</span></td>
+          <td class="arrow-inline">&rarr;</td>
+          <td><code>app/pdf/build_record.py:generate_build_record</code></td>
+          <td>full unit execution history — steps/substeps/measurements/failures/sessions/scans/transits — overwrites one fixed path per unit, no version table (a done unit's rows never change again)</td>
+        </tr>
+      </table>
+      <p class="note">All three reuse the same standalone-Jinja-env + WeasyPrint pattern; output lands under <code>{ARTIFACT_DIR}/...</code> on disk, served back by <code>GET /artifacts/...</code> routes.</p>
+    </section>
+
+  </div>
+
+  <footer class="pagefoot">
+    <p>Sources walked for this page: <code>app/main.py</code>, <code>app/sync/worker.py</code>, <code>app/sync/hooks.py</code>, <code>app/sync/display.py</code>, <code>app/sync/engine.py</code>, <code>app/outbox/writer.py</code>, <code>app/outbox/drainer.py</code>, <code>app/outbox/payloads.py</code>, <code>app/jb2/client.py</code>, <code>app/ws/hub.py</code>, <code>app/api/dashboard.py</code>, <code>app/domain/pipeline.py</code>, <code>app/domain/events.py</code>, <code>app/pdf/guide.py</code>, <code>app/pdf/badges.py</code>, <code>app/pdf/build_record.py</code>, every <code>app/domain/*.py</code>, every <code>app/api/*.py</code>, and <code>app/domain/models_{jb2,execution,floor,library}.py</code>. Verify with <code>.venv/bin/python tools/gen_dataflow.py</code>.</p>
+  </footer>
+
+</div>
