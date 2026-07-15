@@ -12,6 +12,61 @@ probe harness (`tools/jb2probe.py`) implements this correctly (`get()` prepends 
 
 ---
 
+## §2 — Time-ticket WRITE round trip (P0-R1, LIVE-VERIFIED 2026-07-15)
+
+Resolved via authorized live writes against sandbox job **28962-07** step 10 (order 28962,
+Will-designated fake order; `enteredBy: SANDBOXAPI` on every response confirms sandbox).
+These findings **override** the spec-only assumptions and expose real bugs in the current
+`app/outbox/payloads.py` builder — see CR-018.
+
+1. **Header + detail MUST be created together, nested in one `POST /time-tickets`.** A
+   standalone `POST /time-ticket-details` referencing a separately-created header fails
+   `400 "Cannot find Time Ticket for employeeCode N and date D"` — even when the detail's
+   `ticketDate` exactly matches the header's stored value. The working call is
+   `POST /time-tickets` with a `timeTicketDetails: [ {...} ]` array (schema
+   `TimeTicketCreate` → `TimeTicketTimeTicketDetailsCreate`). **This breaks the DD §4.4 /
+   §4.5 two-step design (ensure-header-then-post-detail) and the current outbox's separate
+   `time_ticket` + `time_ticket_detail` senders.**
+2. **`timeStart` / `timeEnd` are `HH:MM` clock strings (max length 5), NOT ISO datetimes.**
+   Posting ISO timestamps fails `400 "value for field timeStart exceeds maximum length of 5"`.
+   The date comes from the header's `ticketDate`; the detail carries only wall-clock times.
+   The current builder emits full ISO `yyyy-MM-ddTHH:mm:ssZ` — **wrong**.
+3. **JB2 DERIVES `cycleTime` (decimal hours) from `timeStart`/`timeEnd`** — they are
+   complementary, not alternatives. A 14:38→14:43 detail read back as `cycleTime: 0.083`
+   (5 min), `setupTime: 0.0`. So a run session sends `timeStart`/`timeEnd`; `setupTime` is
+   sent explicitly only for setup sessions. **Resolves the §4.7.2 `[VERIFY-JB2]`
+   alternates-or-complements question: COMPLEMENTS (JB2 computes cycle from the clock).**
+4. **`ticketDate` is timezone-normalized to the server's local date at midnight.** Sending
+   `2026-07-15T00:00:00Z` stored `2026-07-14T04:00:00Z` (server is UTC−4; it takes the
+   local-date and stores local-midnight-as-UTC). Send a date that resolves to the intended
+   local day; the detail inherits the header's normalized date.
+5. **`operationNumber` ≠ `stepNumber`.** Sending `operationNumber = stepNumber (10)` fails
+   `400 "Operation Number '10' is invalid"`. It is a distinct numeric op id; **omit it** —
+   `stepNumber` + `jobNumber` locate the routing operation fine.
+6. **`workCenter` is a numeric id, not the string code.** Schema types it `integer`;
+   routings expose it as a string (`"LASER"`). Omitted in the working call (nullable) — if
+   sent, must be the numeric work-center id (needs a code→id map we don't yet build).
+7. **`allowClosedJobs: true`** on the header lets labor post to non-open jobs — set it so a
+   late write after a job closes doesn't 400.
+8. **Detail `PATCH /time-ticket-details/{timeTicketGUID}` works** — `204 No Content`;
+   `piecesFinished` 1→2 and `comments` confirmed writable on the returned GUID.
+
+**Working minimal payload (live-confirmed):**
+```json
+POST /api/v1/time-tickets
+{"employeeCode": 1, "ticketDate": "2026-07-15T00:00:00Z", "allowClosedJobs": true,
+ "timeTicketDetails": [
+   {"jobNumber": "28962-07", "stepNumber": 10, "timeStart": "14:38", "timeEnd": "14:43",
+    "piecesFinished": 1, "piecesScrapped": 0, "comments": "..."}]}
+```
+
+**Test data to delete in the JB2 dashboard** (no API void): time tickets for employee
+**Adam Nilson (code 1)**, ticket date **2026-07-14**, comments containing "MES P0-R1" /
+"delete me" (header uniqueIDs 28637 + 28642 and their orphan siblings; detail GUID
+`f93f95e4-a81d-43d1-89e7-555c9fc9b836`).
+
+---
+
 ## §1 Auth — TTL, refresh strategy, activation matrix
 
 **[VERIFY-JB2] token TTL and refresh cadence → RESOLVED.**
